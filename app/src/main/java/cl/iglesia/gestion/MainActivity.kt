@@ -168,6 +168,8 @@ private fun ChurchApp() {
     var currentTab by rememberSaveable { mutableStateOf(AppTab.Home) }
     var morePage by rememberSaveable { mutableStateOf(MorePage.Menu) }
     var calendarPersonal by rememberSaveable { mutableStateOf(false) }
+    /** En la agenda personal: lista de pendientes (true) o vista por día (false). */
+    var calendarPending by rememberSaveable { mutableStateOf(false) }
     var openForm by remember { mutableStateOf<FormRequest?>(null) }
     var detailItemId by remember { mutableStateOf<String?>(null) }
     var submitting by remember { mutableStateOf(false) }
@@ -531,6 +533,8 @@ private fun ChurchApp() {
                                     onOpenItem = { detailItemId = it.id },
                                     onOpenAgenda = { personal ->
                                         calendarPersonal = personal
+                                        // Desde Inicio, "personal" significa ver los pendientes que se contaron allí.
+                                        calendarPending = personal
                                         currentTab = AppTab.Calendar
                                     },
                                     onOpenNotifications = {
@@ -545,6 +549,8 @@ private fun ChurchApp() {
                                     ministries = ministries,
                                     personal = calendarPersonal,
                                     onPersonalChange = { calendarPersonal = it },
+                                    pendingView = calendarPending,
+                                    onPendingViewChange = { calendarPending = it },
                                     onOpenItem = { detailItemId = it.id },
                                     onCreate = ::openFormRequest,
                                 )

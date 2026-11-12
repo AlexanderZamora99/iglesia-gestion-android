@@ -68,6 +68,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -91,10 +92,7 @@ fun HomeScreen(
 ) {
     val today = LocalDate.now()
     val mine = activities.filter { it.involves(member.id) }
-    // Trabajo propio con fecha y sin terminar desde hoy, más las tareas vencidas.
-    val pending = mine
-        .filter { !it.isDone && (!it.date.isBefore(today) || it.isTask) }
-        .sortedWith(compareBy(ChurchActivity::date, ChurchActivity::time))
+    val pending = pendingFor(member, activities, today)
     val pendingTasks = pending.count { it.isTask }
     val thisWeek = mine.count { !it.isDone && !it.date.isBefore(today) && it.date.isBefore(today.plusDays(7)) }
     val unread = notifications.filter { !it.read }
@@ -187,6 +185,29 @@ private fun SummaryTile(
     }
 }
 
+/**
+ * Trabajo propio sin terminar desde hoy, más las tareas vencidas. Inicio y la vista
+ * "Pendientes" de la Agenda usan esta misma regla para que sus números coincidan.
+ */
+fun pendingFor(member: Member, activities: List<ChurchActivity>, today: LocalDate = LocalDate.now()): List<ChurchActivity> =
+    activities
+        .filter { it.involves(member.id) && !it.isDone && (!it.date.isBefore(today) || it.isTask) }
+        .sortedWith(compareBy(ChurchActivity::date, ChurchActivity::time))
+
+private enum class PendingGroup(val title: String) {
+    Overdue("Vencidas"),
+    Today("Hoy"),
+    Soon("Próximos días"),
+    Later("Más adelante"),
+}
+
+private fun ChurchActivity.pendingGroup(today: LocalDate): PendingGroup = when {
+    date.isBefore(today) -> PendingGroup.Overdue
+    date == today -> PendingGroup.Today
+    date.isBefore(today.plusDays(7)) -> PendingGroup.Soon
+    else -> PendingGroup.Later
+}
+
 // Tarjeta de elemento de agenda --------------------------------------------------
 
 @Composable
@@ -256,10 +277,19 @@ fun CalendarScreen(
     ministries: List<Ministry>,
     personal: Boolean,
     onPersonalChange: (Boolean) -> Unit,
+    pendingView: Boolean,
+    onPendingViewChange: (Boolean) -> Unit,
     onOpenItem: (ChurchActivity) -> Unit,
     onCreate: (FormRequest) -> Unit,
 ) {
     val today = LocalDate.now()
+    // La lista de pendientes solo existe en la agenda personal.
+    val showingPending = personal && pendingView
+    val pendingGroups = if (showingPending) {
+        pendingFor(member, activities, today).groupBy { it.pendingGroup(today) }
+    } else {
+        emptyMap()
+    }
     var selectedDate by rememberSaveable { mutableStateOf(today) }
     var typeFilter by rememberSaveable { mutableStateOf("Todos") }
     var createMenu by remember { mutableStateOf(false) }
@@ -284,7 +314,11 @@ fun CalendarScreen(
                     ScreenHeader(
                         "Calendario",
                         "Agenda",
-                        if (personal) "Lo que tienes asignado o donde participas." else "Toda la actividad visible para ti.",
+                        when {
+                            showingPending -> "Lo que te falta por hacer, empezando por lo vencido."
+                            personal -> "Lo que tienes asignado o donde participas."
+                            else -> "Toda la actividad visible para ti."
+                        },
                     )
                     Spacer(Modifier.height(12.dp))
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -297,8 +331,53 @@ fun CalendarScreen(
                             ) { Text(label) }
                         }
                     }
+                    if (personal) {
+                        Spacer(Modifier.height(8.dp))
+                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                            listOf(true to "Pendientes", false to "Por día").forEachIndexed { index, (value, label) ->
+                                SegmentedButton(
+                                    selected = pendingView == value,
+                                    onClick = { onPendingViewChange(value) },
+                                    shape = SegmentedButtonDefaults.itemShape(index, 2),
+                                    colors = SegmentedButtonDefaults.colors(activeContainerColor = BrandContainer, activeContentColor = Brand),
+                                ) { Text(label) }
+                            }
+                        }
+                    }
                 }
             }
+            if (showingPending) {
+                if (pendingGroups.isEmpty()) {
+                    item {
+                        EmptyState(
+                            "Estás al día",
+                            "No tienes tareas ni actividades pendientes.",
+                            Icons.Outlined.EventAvailable,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        )
+                    }
+                }
+                PendingGroup.entries.forEach { group ->
+                    val groupItems = pendingGroups[group].orEmpty()
+                    if (groupItems.isNotEmpty()) {
+                        item(key = "g-" + group.name) {
+                            Text(
+                                "${group.title} (${groupItems.size})",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = if (group == PendingGroup.Overdue) Danger else TextPrimary,
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp)
+                                    .semantics { heading() },
+                            )
+                        }
+                        items(groupItems, key = { "pg-" + it.kind.name + it.id }) { item ->
+                            Box(Modifier.padding(horizontal = 16.dp)) {
+                                ActivityListCard(item, ministries, onClick = { onOpenItem(item) }, showDate = true)
+                            }
+                        }
+                    }
+                }
+            } else {
             item {
                 Column(Modifier.padding(horizontal = 12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -372,6 +451,7 @@ fun CalendarScreen(
                         ActivityListCard(item, ministries, onClick = { onOpenItem(item) })
                     }
                 }
+            }
             }
         }
 
