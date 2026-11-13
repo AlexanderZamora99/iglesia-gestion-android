@@ -321,27 +321,24 @@ fun CalendarScreen(
                         },
                     )
                     Spacer(Modifier.height(12.dp))
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        listOf(false to "General", true to "Personal").forEachIndexed { index, (value, label) ->
-                            SegmentedButton(
-                                selected = personal == value,
-                                onClick = { onPersonalChange(value) },
-                                shape = SegmentedButtonDefaults.itemShape(index, 2),
-                                colors = SegmentedButtonDefaults.colors(activeContainerColor = BrandContainer, activeContentColor = Brand),
-                            ) { Text(label) }
-                        }
+                    // Un solo selector en lugar de dos apilados: General, Mi agenda (por día) o Pendientes.
+                    val modes = listOf("General", "Mi agenda", "Pendientes")
+                    val selectedMode = when {
+                        !personal -> 0
+                        pendingView -> 2
+                        else -> 1
                     }
-                    if (personal) {
-                        Spacer(Modifier.height(8.dp))
-                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                            listOf(true to "Pendientes", false to "Por día").forEachIndexed { index, (value, label) ->
-                                SegmentedButton(
-                                    selected = pendingView == value,
-                                    onClick = { onPendingViewChange(value) },
-                                    shape = SegmentedButtonDefaults.itemShape(index, 2),
-                                    colors = SegmentedButtonDefaults.colors(activeContainerColor = BrandContainer, activeContentColor = Brand),
-                                ) { Text(label) }
-                            }
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                        modes.forEachIndexed { index, label ->
+                            SegmentedButton(
+                                selected = selectedMode == index,
+                                onClick = {
+                                    onPersonalChange(index != 0)
+                                    if (index != 0) onPendingViewChange(index == 2)
+                                },
+                                shape = SegmentedButtonDefaults.itemShape(index, modes.size),
+                                colors = SegmentedButtonDefaults.colors(activeContainerColor = BrandContainer, activeContentColor = Brand),
+                            ) { Text(label, maxLines = 1) }
                         }
                     }
                 }
