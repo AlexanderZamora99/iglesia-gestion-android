@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -484,13 +485,15 @@ private fun ChurchApp() {
                                         Icon(tab.icon, contentDescription = null, modifier = Modifier.size(28.dp))
                                     }
                                 },
-                                // Cinco pestañas: la etiqueta usa un tamaño fijo que cabe completa en pantallas angostas.
+                                // Cinco pestañas: 15 sp es el mínimo de la app. Con `unbounded` la etiqueta puede usar
+                                // todo el ancho de su pestaña (no solo el interior) y "Ministerios" no se corta.
                                 label = {
                                     Text(
                                         tab.label,
                                         maxLines = 1,
                                         softWrap = false,
-                                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 14.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+                                        modifier = Modifier.wrapContentWidth(unbounded = true),
+                                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 15.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
                                     )
                                 },
                                 colors = NavigationBarItemDefaults.colors(
