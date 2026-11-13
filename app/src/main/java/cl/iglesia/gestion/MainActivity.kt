@@ -113,56 +113,98 @@ private fun TabNavigationDestination(
     tab: AppTab,
     selected: Boolean,
     unread: Int,
+    singleRowMode: Boolean,
     modifier: Modifier = Modifier,
     onSelect: () -> Unit,
 ) {
-    val itemColor by animateColorAsState(
-        targetValue = if (selected) Brand else TextMuted,
-        label = "tab icon and label color",
+    val iconColor by animateColorAsState(
+        targetValue = if (selected) Brand else Color.White.copy(alpha = 0.68f),
+        label = "tab icon color",
+    )
+    val labelColor by animateColorAsState(
+        targetValue = when {
+            singleRowMode && selected -> Brand
+            selected -> Color.White
+            else -> Color.White.copy(alpha = 0.68f)
+        },
+        label = "tab label color",
     )
     val indicatorColor by animateColorAsState(
-        targetValue = if (selected) BrandContainer else Color.Transparent,
+        targetValue = if (selected) Color.White else Color.Transparent,
         label = "tab selection indicator",
     )
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
-            .clickable(onClick = onSelect)
-            .semantics {
-                contentDescription = tab.label
-                role = Role.Tab
-                this.selected = selected
-            }
-            .padding(vertical = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(width = 52.dp, height = 34.dp)
-                .clip(RoundedCornerShape(18.dp))
-                .background(indicatorColor),
-            contentAlignment = Alignment.Center,
+    val baseModifier = modifier
+        .clip(RoundedCornerShape(28.dp))
+        .clickable(onClick = onSelect)
+        .semantics {
+            contentDescription = tab.label
+            role = Role.Tab
+            this.selected = selected
+        }
+
+    if (singleRowMode && selected) {
+        Row(
+            modifier = baseModifier
+                .padding(vertical = 3.dp)
+                .background(indicatorColor, RoundedCornerShape(28.dp))
+                .padding(horizontal = 10.dp, vertical = 9.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (tab == AppTab.More && unread > 0) {
-                BadgedBox(badge = { Badge() }) {
-                    Icon(tab.icon, contentDescription = null, tint = itemColor, modifier = Modifier.size(23.dp))
-                }
-            } else {
-                Icon(tab.icon, contentDescription = null, tint = itemColor, modifier = Modifier.size(23.dp))
+            TabIcon(tab, unread, iconColor)
+            Spacer(Modifier.width(7.dp))
+            Text(
+                tab.label,
+                color = labelColor,
+                maxLines = 1,
+                softWrap = false,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    fontSize = 12.sp,
+                ),
+            )
+        }
+    } else {
+        Column(
+            modifier = baseModifier.padding(vertical = 3.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(width = 52.dp, height = 34.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(if (selected) indicatorColor else Color.Transparent),
+                contentAlignment = Alignment.Center,
+            ) {
+                TabIcon(tab, unread, iconColor)
+            }
+            if (!singleRowMode) {
+                Text(
+                    tab.label,
+                    color = labelColor,
+                    maxLines = 2,
+                    softWrap = true,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Medium,
+                        fontSize = 12.sp,
+                    ),
+                )
             }
         }
-        Text(
-            tab.label,
-            color = itemColor,
-            maxLines = 2,
-            softWrap = true,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Medium,
-                fontSize = 12.sp,
-            ),
-        )
+    }
+}
+
+@Composable
+private fun TabIcon(tab: AppTab, unread: Int, tint: Color) {
+    if (tab == AppTab.More && unread > 0) {
+        BadgedBox(badge = { Badge() }) {
+            Icon(tab.icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
+        }
+    } else {
+        Icon(tab.icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
     }
 }
 
@@ -540,58 +582,69 @@ private fun ChurchApp() {
                     )
                 },
                 bottomBar = {
-                    Surface(color = Color.White, tonalElevation = 2.dp) {
+                    Surface(color = AppBackground) {
                         val navigationModifier = Modifier
                             .fillMaxWidth()
                             .windowInsetsPadding(WindowInsets.navigationBars)
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                        if (compactNavigation) {
-                            Column(
-                                modifier = navigationModifier,
-                                verticalArrangement = Arrangement.spacedBy(2.dp),
-                            ) {
-                                Row(Modifier.fillMaxWidth()) {
-                                    AppTab.entries.take(3).forEach { tab ->
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                        Surface(
+                            modifier = navigationModifier,
+                            color = TextPrimary,
+                            shape = RoundedCornerShape(36.dp),
+                            shadowElevation = 8.dp,
+                        ) {
+                            if (compactNavigation) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 5.dp),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                ) {
+                                    Row(Modifier.fillMaxWidth()) {
+                                        AppTab.entries.take(3).forEach { tab ->
+                                            TabNavigationDestination(
+                                                tab = tab,
+                                                selected = currentTab == tab,
+                                                unread = unread,
+                                                singleRowMode = false,
+                                                modifier = Modifier.weight(1f),
+                                                onSelect = {
+                                                    if (tab == AppTab.More) morePage = MorePage.Menu
+                                                    currentTab = tab
+                                                },
+                                            )
+                                        }
+                                    }
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                                        AppTab.entries.drop(3).forEach { tab ->
+                                            TabNavigationDestination(
+                                                tab = tab,
+                                                selected = currentTab == tab,
+                                                unread = unread,
+                                                singleRowMode = false,
+                                                modifier = Modifier.weight(1f).widthIn(max = 160.dp),
+                                                onSelect = {
+                                                    if (tab == AppTab.More) morePage = MorePage.Menu
+                                                    currentTab = tab
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                Row(Modifier.fillMaxWidth().padding(4.dp)) {
+                                    AppTab.entries.forEach { tab ->
+                                        val selected = currentTab == tab
                                         TabNavigationDestination(
                                             tab = tab,
-                                            selected = currentTab == tab,
+                                            selected = selected,
                                             unread = unread,
-                                            modifier = Modifier.weight(1f),
+                                            singleRowMode = true,
+                                            modifier = Modifier.weight(if (selected) 2.2f else 1f),
                                             onSelect = {
                                                 if (tab == AppTab.More) morePage = MorePage.Menu
                                                 currentTab = tab
                                             },
                                         )
                                     }
-                                }
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                                    AppTab.entries.drop(3).forEach { tab ->
-                                        TabNavigationDestination(
-                                            tab = tab,
-                                            selected = currentTab == tab,
-                                            unread = unread,
-                                            modifier = Modifier.weight(1f).widthIn(max = 160.dp),
-                                            onSelect = {
-                                                if (tab == AppTab.More) morePage = MorePage.Menu
-                                                currentTab = tab
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-                        } else {
-                            Row(navigationModifier) {
-                                AppTab.entries.forEach { tab ->
-                                    TabNavigationDestination(
-                                        tab = tab,
-                                        selected = currentTab == tab,
-                                        unread = unread,
-                                        modifier = Modifier.weight(1f),
-                                        onSelect = {
-                                            if (tab == AppTab.More) morePage = MorePage.Menu
-                                            currentTab = tab
-                                        },
-                                    )
                                 }
                             }
                         }
