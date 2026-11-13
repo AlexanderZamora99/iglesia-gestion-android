@@ -397,6 +397,16 @@ fun FieldLabel(text: String, required: Boolean = false) {
 }
 
 @Composable
+fun FormSection(title: String, description: String? = null) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(top = 6.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium, color = Brand)
+        if (description != null) {
+            Text(description, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+        }
+    }
+}
+
+@Composable
 fun FieldError(text: String) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = Danger)
 }
@@ -439,23 +449,35 @@ fun FullScreenForm(
             },
             bottomBar = {
                 Surface(color = Color.White, shadowElevation = 8.dp) {
-                    Button(
-                        onClick = onConfirm,
-                        enabled = canConfirm && !submitting,
-                        modifier = Modifier
+                    Column(
+                        Modifier
                             .fillMaxWidth()
                             .navigationBarsPadding()
                             .imePadding()
-                            .padding(16.dp)
-                            .height(52.dp),
-                        shape = MaterialTheme.shapes.medium,
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        if (submitting) {
-                            CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                            Spacer(Modifier.width(10.dp))
-                            Text("Guardando…")
-                        } else {
-                            Text(confirmLabel)
+                        if (!canConfirm && !submitting) {
+                            Text(
+                                "Completa los campos obligatorios y corrige los errores para continuar.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondary,
+                                modifier = Modifier.padding(bottom = 4.dp),
+                            )
+                        }
+                        Button(
+                            onClick = onConfirm,
+                            enabled = canConfirm && !submitting,
+                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                            shape = MaterialTheme.shapes.medium,
+                        ) {
+                            if (submitting) {
+                                CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                                Spacer(Modifier.width(10.dp))
+                                Text("Guardando…")
+                            } else {
+                                Text(confirmLabel)
+                            }
                         }
                     }
                 }
@@ -667,8 +689,16 @@ fun MemberPicker(
 ) {
     var query by remember { mutableStateOf("") }
     val visible = members.filter { it.name.contains(query.trim(), ignoreCase = true) }
+    val selectedCount = selectedIds.count { id -> members.any { it.id == id } }
     if (members.size > 6) {
         TextInput(value = query, onValueChange = { query = it }, label = "Buscar persona")
+    }
+    if (multiSelect && selectedCount > 0) {
+        Text(
+            "$selectedCount ${if (selectedCount == 1) "persona seleccionada" else "personas seleccionadas"}",
+            style = MaterialTheme.typography.bodySmall,
+            color = Brand,
+        )
     }
     if (members.isEmpty()) {
         Text(emptyMessage, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
@@ -690,6 +720,14 @@ fun MemberPicker(
                             },
                         )
                     },
+                )
+            }
+            if (visible.isEmpty() && members.isNotEmpty()) {
+                Text(
+                    "No encontramos personas con ese nombre.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 )
             }
         }

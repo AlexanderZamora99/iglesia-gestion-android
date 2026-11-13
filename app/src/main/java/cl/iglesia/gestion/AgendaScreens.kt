@@ -95,7 +95,9 @@ fun HomeScreen(
     val pending = mine
         .filter { !it.isDone && (!it.date.isBefore(today) || it.isTask) }
         .sortedWith(compareBy(ChurchActivity::date, ChurchActivity::time))
-    val pendingTasks = pending.count { it.isTask }
+    val overdueTasks = pending.count { it.isTask && it.isOverdue() }
+    val pendingTasks = pending.count { it.isTask } - overdueTasks
+    val upcomingPending = pending.filterNot { it.isTask && it.isOverdue() }
     val thisWeek = mine.count { !it.isDone && !it.date.isBefore(today) && it.date.isBefore(today.plusDays(7)) }
     val unread = notifications.filter { !it.read }
     val upcomingChurch = activities
@@ -119,29 +121,47 @@ fun HomeScreen(
             )
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                SummaryTile("Tareas pendientes", pendingTasks, Icons.Outlined.TaskAlt, Modifier.weight(1f)) { onOpenAgenda(true) }
-                SummaryTile("Próximos 7 días", thisWeek, Icons.Outlined.CalendarMonth, Modifier.weight(1f)) { onOpenAgenda(true) }
-                SummaryTile("Avisos sin leer", unread.size, Icons.Outlined.NotificationsNone, Modifier.weight(1f), onOpenNotifications)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SummaryTile("Tareas vencidas", overdueTasks, Icons.Outlined.TaskAlt, Modifier.weight(1f)) { onOpenAgenda(true) }
+                    SummaryTile("Otras tareas pendientes", pendingTasks, Icons.Outlined.TaskAlt, Modifier.weight(1f)) { onOpenAgenda(true) }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SummaryTile("Elementos próximos 7 días", thisWeek, Icons.Outlined.CalendarMonth, Modifier.weight(1f)) { onOpenAgenda(true) }
+                    SummaryTile("Avisos sin leer", unread.size, Icons.Outlined.NotificationsNone, Modifier.weight(1f), onOpenNotifications)
+                }
             }
         }
-        item { SectionHeader("Mis pendientes", actionLabel = "Ver agenda", onAction = { onOpenAgenda(true) }) }
-        if (pending.isEmpty()) {
+        if (overdueTasks > 0) {
+            item { SectionHeader("Tareas vencidas", actionLabel = "Ver agenda", onAction = { onOpenAgenda(true) }) }
+            items(pending.filter { it.isTask && it.isOverdue() }.take(6), key = { "overdue-" + it.id }) { item ->
+                ActivityListCard(item, ministries, onClick = { onOpenItem(item) }, showDate = true)
+            }
+            if (overdueTasks > 6) {
+                item {
+                    TextButton(onClick = { onOpenAgenda(true) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Ver ${overdueTasks - 6} tareas vencidas más")
+                    }
+                }
+            }
+        }
+        item { SectionHeader("Próximos pendientes", actionLabel = "Ver agenda", onAction = { onOpenAgenda(true) }) }
+        if (upcomingPending.isEmpty()) {
             item {
                 EmptyState(
-                    "Estás al día",
-                    "No tienes tareas ni actividades pendientes con fecha.",
+                    if (overdueTasks > 0) "No tienes otros pendientes próximos" else "Estás al día",
+                    if (overdueTasks > 0) "Las tareas vencidas aparecen en la sección anterior." else "No tienes tareas ni actividades pendientes con fecha.",
                     Icons.Outlined.EventAvailable,
                 )
             }
         } else {
-            items(pending.take(6), key = { "p-" + it.kind.name + it.id }) { item ->
+            items(upcomingPending.take(6), key = { "p-" + it.kind.name + it.id }) { item ->
                 ActivityListCard(item, ministries, onClick = { onOpenItem(item) }, showDate = true)
             }
-            if (pending.size > 6) {
+            if (upcomingPending.size > 6) {
                 item {
                     TextButton(onClick = { onOpenAgenda(true) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Ver ${pending.size - 6} pendientes más")
+                        Text("Ver ${upcomingPending.size - 6} pendientes más")
                     }
                 }
             }
@@ -216,9 +236,11 @@ fun ActivityListCard(
                     if (showDate) append(item.date.relativeLabel()).append(" · ")
                     append(item.time)
                     if (!item.isTask && item.endTime.isNotBlank()) append("–").append(item.endTime)
-                    if (item.location.isNotBlank()) append(" · ").append(item.location)
                 }
-                Text(whenText, style = MaterialTheme.typography.bodySmall, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(whenText, style = MaterialTheme.typography.bodySmall, color = TextSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (item.location.isNotBlank()) {
+                    Text(item.location, style = MaterialTheme.typography.bodySmall, color = TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
                 item.parentActivityTitle?.let {
                     Text("En: $it", style = MaterialTheme.typography.bodySmall, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
@@ -284,7 +306,7 @@ fun CalendarScreen(
                     ScreenHeader(
                         "Calendario",
                         "Agenda",
-                        if (personal) "Lo que tienes asignado o donde participas." else "Toda la actividad visible para ti.",
+                        if (personal) "Vista personal · lo que tienes asignado o donde participas." else "Vista general · toda la actividad visible para ti.",
                     )
                     Spacer(Modifier.height(12.dp))
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -362,7 +384,11 @@ fun CalendarScreen(
                 item {
                     EmptyState(
                         "Sin elementos este día",
-                        if (personal) "No tienes asignaciones para esta fecha." else "Elige otra fecha o cambia el filtro.",
+                        when {
+                            personal -> "No tienes asignaciones para esta fecha. Prueba otro día o cambia a la agenda general."
+                            typeFilter != "Todos" -> "No hay elementos de tipo «$typeFilter» para esta fecha. Prueba otro filtro o día."
+                            else -> "No hay actividades visibles para esta fecha. Prueba otro día o revisa la agenda personal."
+                        },
                         modifier = Modifier.padding(horizontal = 16.dp),
                     )
                 }

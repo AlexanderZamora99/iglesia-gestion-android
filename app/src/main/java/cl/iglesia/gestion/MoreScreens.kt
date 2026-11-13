@@ -74,7 +74,7 @@ fun MoreScreen(
         contentPadding = ListPadding,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item { ScreenHeader("Herramientas", "Más opciones") }
+        item { ScreenHeader("Accesos y cuenta", "Herramientas", "Funciones de apoyo, administración y configuración de tu cuenta.") }
         item {
             AppCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
