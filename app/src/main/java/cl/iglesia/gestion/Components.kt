@@ -63,10 +63,14 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -407,6 +411,9 @@ fun FieldError(text: String) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = Danger)
 }
 
+/** Verdadero cuando la persona intentó guardar con datos faltantes: los campos obligatorios vacíos se marcan. */
+val LocalShowRequiredErrors = compositionLocalOf { false }
+
 /** Formulario a pantalla completa (patrón Material para formularios largos en móvil). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -427,6 +434,11 @@ fun FullScreenForm(
     // cerrar se pregunta si quiere descartar lo hecho. Deslizar para ver más no cuenta.
     var touched by rememberSaveable { mutableStateOf(false) }
     var askDiscard by rememberSaveable { mutableStateOf(false) }
+    // El botón de guardar nunca se ve "muerto": si faltan datos, al tocarlo se explica qué pasa.
+    var triedToSave by rememberSaveable { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
+    val coroutineScope = rememberCoroutineScope()
+    val showProblems = triedToSave && !canConfirm
     val requestClose = {
         when {
             submitting -> Unit
@@ -471,8 +483,15 @@ fun FullScreenForm(
             bottomBar = {
                 Surface(color = Color.White, shadowElevation = 8.dp) {
                     Button(
-                        onClick = onConfirm,
-                        enabled = canConfirm && !submitting,
+                        onClick = {
+                            if (canConfirm) {
+                                onConfirm()
+                            } else {
+                                triedToSave = true
+                                coroutineScope.launch { scrollState.animateScrollTo(0) }
+                            }
+                        },
+                        enabled = !submitting,
                         modifier = Modifier
                             .fillMaxWidth()
                             .navigationBarsPadding()
@@ -502,12 +521,18 @@ fun FullScreenForm(
                             if (waitForUpOrCancellation(PointerEventPass.Initial) != null) touched = true
                         }
                     }
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
+                if (showProblems) {
+                    MessageBanner(
+                        "Aún no se puede guardar. Completa los campos con * o corrige los que están en rojo.",
+                        BannerTone.Error,
+                    )
+                }
                 if (error != null) MessageBanner(error, BannerTone.Error)
-                content()
+                CompositionLocalProvider(LocalShowRequiredErrors provides showProblems) { content() }
                 Text("* Campo obligatorio", style = MaterialTheme.typography.bodySmall, color = TextMuted)
             }
         }
@@ -530,6 +555,7 @@ fun TextInput(
     isError: Boolean = false,
     placeholder: String? = null,
 ) {
+    val missing = required && value.isBlank() && LocalShowRequiredErrors.current
     OutlinedTextField(
         value = value,
         // Un campo de una línea no debe guardar saltos de línea, ni siquiera al pegar texto.
@@ -539,8 +565,12 @@ fun TextInput(
         placeholder = placeholder?.let { { Text(it) } },
         singleLine = singleLine,
         minLines = minLines,
-        isError = isError,
-        supportingText = supportingText?.let { { Text(it) } },
+        isError = isError || missing,
+        supportingText = when {
+            missing -> ({ Text("Este campo es obligatorio") })
+            supportingText != null -> ({ Text(supportingText) })
+            else -> null
+        },
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         shape = MaterialTheme.shapes.medium,
     )
