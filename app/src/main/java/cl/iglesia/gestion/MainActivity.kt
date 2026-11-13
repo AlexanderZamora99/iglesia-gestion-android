@@ -540,6 +540,12 @@ private fun ChurchApp() {
                                         calendarPending = personal
                                         currentTab = AppTab.Calendar
                                     },
+                                    // "Próximos 7 días" abre Mi agenda (por día); "Tareas pendientes" abre Pendientes.
+                                    onOpenMyAgenda = {
+                                        calendarPersonal = true
+                                        calendarPending = false
+                                        currentTab = AppTab.Calendar
+                                    },
                                     onOpenNotifications = {
                                         currentTab = AppTab.More
                                         morePage = MorePage.Notifications

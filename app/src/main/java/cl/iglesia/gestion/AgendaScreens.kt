@@ -88,6 +88,7 @@ fun HomeScreen(
     notifications: List<ChurchNotification>,
     onOpenItem: (ChurchActivity) -> Unit,
     onOpenAgenda: (personal: Boolean) -> Unit,
+    onOpenMyAgenda: () -> Unit,
     onOpenNotifications: () -> Unit,
 ) {
     val today = LocalDate.now()
@@ -119,7 +120,7 @@ fun HomeScreen(
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 SummaryTile("Tareas pendientes", pendingTasks, Icons.Outlined.TaskAlt, Modifier.weight(1f)) { onOpenAgenda(true) }
-                SummaryTile("Próximos 7 días", thisWeek, Icons.Outlined.CalendarMonth, Modifier.weight(1f)) { onOpenAgenda(true) }
+                SummaryTile("Próximos 7 días", thisWeek, Icons.Outlined.CalendarMonth, Modifier.weight(1f)) { onOpenMyAgenda() }
                 SummaryTile("Avisos sin leer", unread.size, Icons.Outlined.NotificationsNone, Modifier.weight(1f), onOpenNotifications)
             }
         }
