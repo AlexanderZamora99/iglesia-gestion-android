@@ -690,9 +690,7 @@ fun ActivityDetailSheet(
                 }
                 item.taskComments.forEach { comment ->
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        val whenLabel = comment.createdAt
-                            ?.atZoneSameInstant(java.time.ZoneId.systemDefault())
-                            ?.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
+                        val whenLabel = comment.createdAt?.dateTimeLabel()
                         Text(
                             listOfNotNull(nameOf(comment.authorId) ?: "Alguien", whenLabel).joinToString(" · "),
                             style = MaterialTheme.typography.labelSmall,

@@ -118,6 +118,12 @@ fun LocalDate.shortLabel(): String =
 fun LocalDate.fieldLabel(): String =
     format(DateTimeFormatter.ofPattern("d MMM yyyy", AppLocale)).replace(".", "")
 
+/** Fecha y hora locales, igual que el resto de la app: "13 nov 2026, 14:05" (24 horas). */
+fun OffsetDateTime.dateTimeLabel(): String =
+    atZoneSameInstant(ZoneId.systemDefault())
+        .format(DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm", AppLocale))
+        .replace(".", "")
+
 fun LocalDate.monthLabel(): String =
     format(DateTimeFormatter.ofPattern("MMMM yyyy", AppLocale)).capitalized()
 
