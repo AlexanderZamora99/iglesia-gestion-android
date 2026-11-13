@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.navigationBars
@@ -527,7 +529,9 @@ private fun ChurchApp() {
                             )
                         }
                         Box(Modifier.weight(1f)) {
-                            when (currentTab) {
+                            // Cambio de pestaña con un fundido corto en lugar de un salto brusco.
+                            Crossfade(targetState = currentTab, animationSpec = tween(180), label = "tab") { tab ->
+                            when (tab) {
                                 AppTab.Home -> HomeScreen(
                                     member = member,
                                     activities = activities,
@@ -692,6 +696,7 @@ private fun ChurchApp() {
                                         onOpenItem = { id -> detailItemId = id },
                                     )
                                 }
+                            }
                             }
                         }
                     }

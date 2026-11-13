@@ -73,6 +73,8 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -305,8 +307,21 @@ fun CalendarScreen(
     val dayItems = visible.filter { it.date == selectedDate }.sortedBy(ChurchActivity::time)
 
     Box(Modifier.fillMaxSize()) {
+        // Deslizar a los lados cambia de semana (solo en la vista por día; las flechas siguen igual).
+        val swipeWeeks = Modifier.pointerInput(showingPending) {
+            if (showingPending) return@pointerInput
+            var total = 0f
+            detectHorizontalDragGestures(
+                onDragStart = { total = 0f },
+                onHorizontalDrag = { _, delta -> total += delta },
+                onDragEnd = {
+                    if (total <= -140f) selectedDate = selectedDate.plusWeeks(1)
+                    else if (total >= 140f) selectedDate = selectedDate.minusWeeks(1)
+                },
+            )
+        }
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().then(swipeWeeks),
             contentPadding = PaddingValues(top = 16.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
