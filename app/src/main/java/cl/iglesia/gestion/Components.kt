@@ -482,8 +482,8 @@ fun FullScreenForm(
                         Button(
                             onClick = onConfirm,
                             enabled = canConfirm && !submitting,
-                            modifier = Modifier.fillMaxWidth().height(52.dp),
-                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                            shape = RoundedCornerShape(50.dp),
                         ) {
                             if (submitting) {
                                 CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)

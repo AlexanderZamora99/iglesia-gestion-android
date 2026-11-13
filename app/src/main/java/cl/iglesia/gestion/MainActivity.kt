@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
@@ -1389,8 +1390,8 @@ private fun LoginScreen(
                     }
                     Button(
                         onClick = submit,
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
-                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                        shape = RoundedCornerShape(50.dp),
                         enabled = canSubmit,
                     ) {
                         if (loading) {
