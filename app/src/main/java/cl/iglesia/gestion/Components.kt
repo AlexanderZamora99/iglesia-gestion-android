@@ -65,7 +65,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -417,7 +423,32 @@ fun FullScreenForm(
     // Se dibuja como capa a pantalla completa dentro de la actividad (edge-to-edge) y no
     // como Dialog: la ventana de un Dialog no recibe bien los insets y el botón inferior
     // quedaba oculto tras la barra de navegación. Debe emitirse en la raíz de la app.
-    androidx.activity.compose.BackHandler { if (!submitting) onDismiss() }
+    // Si la persona tocó algo dentro del formulario (escribir, elegir, marcar), antes de
+    // cerrar se pregunta si quiere descartar lo hecho. Deslizar para ver más no cuenta.
+    var touched by rememberSaveable { mutableStateOf(false) }
+    var askDiscard by rememberSaveable { mutableStateOf(false) }
+    val requestClose = {
+        when {
+            submitting -> Unit
+            touched -> askDiscard = true
+            else -> onDismiss()
+        }
+    }
+    androidx.activity.compose.BackHandler { requestClose() }
+    if (askDiscard) {
+        ConfirmDialog(
+            title = "¿Descartar los cambios?",
+            message = "Si sales ahora, se perderá lo que escribiste o elegiste en este formulario.",
+            confirmLabel = "Descartar",
+            dismissLabel = "Seguir editando",
+            destructive = true,
+            onConfirm = {
+                askDiscard = false
+                onDismiss()
+            },
+            onDismiss = { askDiscard = false },
+        )
+    }
     Surface(Modifier.fillMaxSize(), color = AppBackground) {
         Scaffold(
             containerColor = AppBackground,
@@ -425,7 +456,7 @@ fun FullScreenForm(
                 TopAppBar(
                     title = { Text(title, style = MaterialTheme.typography.titleLarge) },
                     navigationIcon = {
-                        IconButton(onClick = onDismiss, enabled = !submitting) {
+                        IconButton(onClick = requestClose, enabled = !submitting) {
                             Icon(Icons.Outlined.Close, contentDescription = "Cerrar sin guardar")
                         }
                     },
@@ -465,6 +496,12 @@ fun FullScreenForm(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                            if (waitForUpOrCancellation(PointerEventPass.Initial) != null) touched = true
+                        }
+                    }
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -704,6 +741,7 @@ fun ConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     destructive: Boolean = false,
+    dismissLabel: String = "Cancelar",
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -714,7 +752,7 @@ fun ConfirmDialog(
                 Text(confirmLabel, color = if (destructive) Danger else Brand)
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(dismissLabel) } },
     )
 }
 
