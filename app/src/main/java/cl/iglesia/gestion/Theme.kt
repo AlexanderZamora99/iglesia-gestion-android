@@ -13,10 +13,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 // Paleta institucional. Todos los colores de texto cumplen WCAG AA (4.5:1) sobre blanco.
-val Brand = Color(0xFF193B55)
-val BrandLight = Color(0xFF34779A)
-val BrandSurface = Color(0xFFF0F6F8)
-val BrandContainer = Color(0xFFDCEBF0)
+val Brand = Color(0xFF0057FF)
+val BrandLight = Color(0xFF1D4ED8)
+val BrandSurface = Color(0xFFEFF6FF)
+val BrandContainer = Color(0xFFDBEAFE)
 val Gold = Color(0xFFD5B66A)
 val GoldText = Color(0xFF725B27)
 val GoldSurface = Color(0xFFFAF6EA)

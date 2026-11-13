@@ -94,7 +94,9 @@ import io.github.jan.supabase.gotrue.SessionStatus
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.gotrue.providers.builtin.Email
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 enum class AppTab(val label: String, val icon: ImageVector) {
     Home("Inicio", Icons.Outlined.Home),
@@ -230,6 +232,7 @@ private fun ChurchApp() {
     var sessionChecked by remember { mutableStateOf(false) }
     var authMessage by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
     var modulesLoading by remember { mutableStateOf(false) }
+    var pullRefreshing by remember { mutableStateOf(false) }
     var moduleError by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
     val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
@@ -596,8 +599,21 @@ private fun ChurchApp() {
                 },
             ) { padding ->
                 PullToRefreshBox(
-                    isRefreshing = modulesLoading && snapshot != null,
-                    onRefresh = { coroutineScope.launch { reload(member) } },
+                    isRefreshing = pullRefreshing,
+                    onRefresh = {
+                        if (!pullRefreshing && !modulesLoading) {
+                            coroutineScope.launch {
+                                pullRefreshing = true
+                                try {
+                                    withTimeout(30_000) { reload(member) }
+                                } catch (_: TimeoutCancellationException) {
+                                    moduleError = "La recarga tardó demasiado. Revisa tu conexión e inténtalo de nuevo."
+                                } finally {
+                                    pullRefreshing = false
+                                }
+                            }
+                        }
+                    },
                     modifier = Modifier.fillMaxSize().padding(padding),
                 ) {
                     Column(Modifier.fillMaxSize()) {
