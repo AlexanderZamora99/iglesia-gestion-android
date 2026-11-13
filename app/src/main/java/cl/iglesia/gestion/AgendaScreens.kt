@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Assignment
@@ -64,12 +65,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -126,12 +131,9 @@ fun HomeScreen(
                     SummaryTile("Vencidas", overdueTasks, Icons.Outlined.TaskAlt, Modifier.weight(1f)) { onOpenAgenda(true) }
                     SummaryTile("Tareas pendientes", pendingTasks, Icons.Outlined.TaskAlt, Modifier.weight(1f)) { onOpenAgenda(true) }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SummaryTile("Próx. 7 días", thisWeek, Icons.Outlined.CalendarMonth, Modifier.weight(1f)) { onOpenAgenda(true) }
-                    SummaryTile("Avisos sin leer", unread.size, Icons.Outlined.NotificationsNone, Modifier.weight(1f), onOpenNotifications)
-                }
             }
         }
+        item { WeekOverviewCard(thisWeek, unread.size, onOpenAgenda, onOpenNotifications) }
         if (overdueTasks > 0) {
             item { SectionHeader("Tareas vencidas", actionLabel = "Ver agenda", onAction = { onOpenAgenda(true) }) }
             items(pending.filter { it.isTask && it.isOverdue() }.take(6), key = { "overdue-" + it.id }) { item ->
@@ -184,6 +186,86 @@ fun HomeScreen(
                 ActivityListCard(item, ministries, onClick = { onOpenItem(item) }, showDate = true)
             }
         }
+    }
+}
+
+@Composable
+private fun WeekOverviewCard(
+    activityCount: Int,
+    unreadCount: Int,
+    onOpenAgenda: (Boolean) -> Unit,
+    onOpenNotifications: () -> Unit,
+) {
+    val shape = RoundedCornerShape(26.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Brush.linearGradient(listOf(Brand, BrandLight)))
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "ESTA SEMANA",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.78f),
+                )
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    activityCount.toString(),
+                    style = MaterialTheme.typography.displaySmall,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    if (activityCount == 1) "actividad próxima" else "actividades próximas",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.9f),
+                )
+            }
+            Box(
+                Modifier.size(60.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.16f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = Color.White, modifier = Modifier.size(30.dp))
+            }
+        }
+        val largeText = LocalDensity.current.fontScale >= 1.25f
+        if (largeText) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                OverviewAction("Abrir agenda", Icons.Outlined.CalendarMonth, Modifier.fillMaxWidth()) { onOpenAgenda(true) }
+                OverviewAction("Avisos · $unreadCount", Icons.Outlined.NotificationsNone, Modifier.fillMaxWidth(), onOpenNotifications)
+            }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OverviewAction("Abrir agenda", Icons.Outlined.CalendarMonth) { onOpenAgenda(true) }
+                OverviewAction("Avisos · $unreadCount", Icons.Outlined.NotificationsNone, onClick = onOpenNotifications)
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverviewAction(
+    label: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color.White.copy(alpha = 0.16f))
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = label; role = Role.Button }
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+        Text(label, color = Color.White, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -467,7 +549,7 @@ private fun DayCell(
     }
     Column(
         modifier = modifier
-            .clip(MaterialTheme.shapes.medium)
+            .clip(RoundedCornerShape(28.dp))
             .background(background)
             .clickable(onClick = onClick)
             .semantics(mergeDescendants = true) {
