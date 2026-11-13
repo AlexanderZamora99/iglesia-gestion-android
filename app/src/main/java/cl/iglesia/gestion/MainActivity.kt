@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.CalendarMonth
@@ -52,8 +54,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -80,7 +80,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -476,38 +479,65 @@ private fun ChurchApp() {
                     )
                 },
                 bottomBar = {
-                    NavigationBar(containerColor = Color.White, windowInsets = WindowInsets.navigationBars) {
+                    NavigationBar(
+                        containerColor = Color.White,
+                        tonalElevation = 2.dp,
+                        windowInsets = WindowInsets.navigationBars,
+                    ) {
                         AppTab.entries.forEach { tab ->
-                            NavigationBarItem(
-                                selected = currentTab == tab,
-                                onClick = {
+                            val selected = currentTab == tab
+                            val itemColor by animateColorAsState(
+                                targetValue = if (selected) Brand else TextMuted,
+                                label = "tab icon and label color",
+                            )
+                            val indicatorColor by animateColorAsState(
+                                targetValue = if (selected) BrandContainer else Color.Transparent,
+                                label = "tab selection indicator",
+                            )
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(18.dp))
+                                    .clickable {
                                     if (tab == AppTab.More) morePage = MorePage.Menu
                                     currentTab = tab
-                                },
-                                icon = {
-                                    if (tab == AppTab.More && unread > 0) {
-                                        BadgedBox(badge = { Badge() }) { Icon(tab.icon, contentDescription = tab.label, modifier = Modifier.size(28.dp)) }
-                                    } else {
-                                        Icon(tab.icon, contentDescription = tab.label, modifier = Modifier.size(28.dp))
                                     }
-                                },
-                                // Cinco pestañas: la etiqueta usa un tamaño fijo que cabe completa en pantallas angostas.
-                                label = if (compactNavigation) null else {{
+                                    .semantics {
+                                        contentDescription = tab.label
+                                        role = Role.Tab
+                                        this.selected = selected
+                                    }
+                                    .padding(vertical = 4.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(width = 52.dp, height = 34.dp)
+                                        .clip(RoundedCornerShape(18.dp))
+                                        .background(indicatorColor),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (tab == AppTab.More && unread > 0) {
+                                        BadgedBox(badge = { Badge() }) {
+                                            Icon(tab.icon, contentDescription = null, tint = itemColor, modifier = Modifier.size(23.dp))
+                                        }
+                                    } else {
+                                        Icon(tab.icon, contentDescription = null, tint = itemColor, modifier = Modifier.size(23.dp))
+                                    }
+                                }
+                                if (!compactNavigation) {
                                     Text(
                                         tab.label,
+                                        color = itemColor,
                                         maxLines = 1,
                                         softWrap = false,
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Medium,
+                                            fontSize = 11.sp,
+                                        ),
                                     )
-                                }},
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = Brand,
-                                    selectedTextColor = Brand,
-                                    indicatorColor = BrandContainer,
-                                    unselectedIconColor = TextMuted,
-                                    unselectedTextColor = TextMuted,
-                                ),
-                            )
+                                }
+                            }
                         }
                     }
                 },
