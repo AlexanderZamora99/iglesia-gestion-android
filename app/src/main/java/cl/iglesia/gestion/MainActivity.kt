@@ -150,6 +150,14 @@ class MainActivity : ComponentActivity() {
 
 private const val LOAD_ERROR =
     "No se pudieron cargar los datos. Revisa tu conexión y vuelve a intentarlo."
+private const val PROJECT_READ_PERMISSION_ERROR =
+    "El servidor no permite leer los proyectos. Contacta al administrador para revisar los permisos de Supabase."
+
+private fun moduleLoadError(error: Throwable): String {
+    val isProjectPermissionDenied = generateSequence(error) { it.cause }
+        .any { it.message.orEmpty().contains("permission denied for table proyecto", ignoreCase = true) }
+    return if (isProjectPermissionDenied) PROJECT_READ_PERMISSION_ERROR else LOAD_ERROR
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -191,8 +199,8 @@ private fun ChurchApp() {
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            android.util.Log.w("ChurchApp", "Carga fallida", error)
-            moduleError = LOAD_ERROR
+            logFailure("ChurchApp", "Carga de datos fallida", error)
+            moduleError = moduleLoadError(error)
         } finally {
             modulesLoading = false
         }
@@ -214,7 +222,7 @@ private fun ChurchApp() {
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            android.util.Log.w("ChurchApp", "No se pudo cargar el perfil", error)
+            logFailure("ChurchApp", "Carga del perfil fallida", error)
             currentMember = null
             val rejected = error is io.github.jan.supabase.exceptions.RestException ||
                 error.message?.startsWith("Esta cuenta") == true
@@ -311,7 +319,7 @@ private fun ChurchApp() {
                     } catch (error: CancellationException) {
                         throw error
                     } catch (error: Exception) {
-                        android.util.Log.w("ChurchApp", "No se pudo solicitar la recuperación", error)
+                        logFailure("ChurchApp", "Solicitud de recuperación fallida", error)
                         authMessage = "No fue posible solicitar el restablecimiento. Revisa tu conexión e inténtalo de nuevo." to true
                     } finally {
                         authLoading = false
@@ -329,7 +337,7 @@ private fun ChurchApp() {
                     } catch (error: CancellationException) {
                         throw error
                     } catch (error: Exception) {
-                        android.util.Log.w("ChurchApp", "Recuperación rechazada", error)
+                        logFailure("ChurchApp", "Recuperación rechazada", error)
                         authMessage = (
                             (error as? UserFacingException)?.message
                                 ?: "El código no es válido o ya venció. Pide uno nuevo e inténtalo otra vez."
@@ -361,7 +369,7 @@ private fun ChurchApp() {
                         } catch (error: CancellationException) {
                             throw error
                         } catch (error: Exception) {
-                            android.util.Log.w("ChurchApp", "Cambio de contraseña inicial rechazado", error)
+                            logFailure("ChurchApp", "Cambio de contraseña inicial rechazado", error)
                             forcedError = (error as? UserFacingException)?.message
                                 ?: "No se pudo cambiar la contraseña. Revisa tu conexión e inténtalo de nuevo."
                         } finally {
@@ -408,7 +416,7 @@ private fun ChurchApp() {
                     } catch (error: CancellationException) {
                         throw error
                     } catch (error: Exception) {
-                        android.util.Log.w("ChurchApp", "Operación rechazada", error)
+                        logFailure("ChurchApp", "Operación rechazada", error)
                         val detail = (error as? UserFacingException)?.message
                             ?: "No se pudo guardar. Verifica los datos, tu conexión y tus permisos."
                         if (error is PartialSaveException && closeForm) {
@@ -439,7 +447,7 @@ private fun ChurchApp() {
                     } catch (error: CancellationException) {
                         throw error
                     } catch (error: Exception) {
-                        android.util.Log.w("ChurchApp", "No se pudo abrir el archivo", error)
+                        logFailure("ChurchApp", "Apertura de archivo fallida", error)
                         snackbar.showSnackbar("No se pudo abrir \"${file.name}\". Verifica tu conexión y tus permisos.")
                     }
                 }
@@ -884,7 +892,7 @@ private fun ChurchApp() {
                             } catch (error: CancellationException) {
                                 throw error
                             } catch (error: Exception) {
-                                android.util.Log.w("ChurchApp", "Detalles de la cuenta nueva sin guardar", error)
+                                logFailure("ChurchApp", "Detalles de cuenta nueva sin guardar", error)
                                 throw PartialSaveException(
                                     "La cuenta se creó, pero no se guardaron el rol, el teléfono o el liderazgo. Edítalos desde la cuenta.",
                                 )
