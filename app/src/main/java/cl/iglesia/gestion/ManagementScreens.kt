@@ -514,8 +514,8 @@ private fun ProjectCard(
                 }
                 if (project.budgetEstimated != null || project.budgetExecuted != null) {
                     Row {
-                        LabeledValue("Presupuesto estimado", project.budgetEstimated?.toCLPCurrency() ?: "—", Modifier.weight(1f))
-                        LabeledValue("Ejecutado", project.budgetExecuted?.toCLPCurrency() ?: "—", Modifier.weight(1f))
+                        LabeledValue("Presupuesto estimado", project.budgetEstimated?.toMoneyLabel() ?: "—", Modifier.weight(1f))
+                        LabeledValue("Ejecutado", project.budgetExecuted?.toMoneyLabel() ?: "—", Modifier.weight(1f))
                     }
                     val estimated = project.budgetEstimated
                     val executed = project.budgetExecuted

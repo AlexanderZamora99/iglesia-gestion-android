@@ -139,14 +139,14 @@ fun ProjectForm(
             { budgetEstimated = it.digitsOnly() },
             "Presupuesto estimado (CLP)",
             keyboardType = KeyboardType.Number,
-            supportingText = budgetEstimated.toLongOrNull()?.toCLPCurrency() ?: "Opcional",
+            supportingText = budgetEstimated.toLongOrNull()?.toMoneyLabel() ?: "Opcional",
         )
         TextInput(
             budgetExecuted,
             { budgetExecuted = it.digitsOnly() },
             "Presupuesto ejecutado (CLP)",
             keyboardType = KeyboardType.Number,
-            supportingText = budgetExecuted.toLongOrNull()?.toCLPCurrency() ?: "Opcional",
+            supportingText = budgetExecuted.toLongOrNull()?.toMoneyLabel() ?: "Opcional",
         )
     }
 }

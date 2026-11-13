@@ -154,7 +154,7 @@ fun OffsetDateTime.relativeLabel(now: OffsetDateTime = OffsetDateTime.now()): St
     }
 }
 
-fun Long.toCLPCurrency(): String =
+fun Long.toMoneyLabel(): String =
     "$" + String.format(AppLocale, "%,d", this).replace(',', '.')
 
 fun String.toPriorityLabel(): String = when (this) {
