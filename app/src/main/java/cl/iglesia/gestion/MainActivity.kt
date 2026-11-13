@@ -460,6 +460,7 @@ private fun ChurchApp() {
                 currentTab = AppTab.Home
             }
 
+            val compactNavigation = androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.15f
             Scaffold(
                 containerColor = AppBackground,
                 snackbarHost = { SnackbarHost(snackbar) },
@@ -485,20 +486,20 @@ private fun ChurchApp() {
                                 },
                                 icon = {
                                     if (tab == AppTab.More && unread > 0) {
-                                        BadgedBox(badge = { Badge() }) { Icon(tab.icon, contentDescription = null, modifier = Modifier.size(28.dp)) }
+                                        BadgedBox(badge = { Badge() }) { Icon(tab.icon, contentDescription = tab.label, modifier = Modifier.size(28.dp)) }
                                     } else {
-                                        Icon(tab.icon, contentDescription = null, modifier = Modifier.size(28.dp))
+                                        Icon(tab.icon, contentDescription = tab.label, modifier = Modifier.size(28.dp))
                                     }
                                 },
                                 // Cinco pestañas: la etiqueta usa un tamaño fijo que cabe completa en pantallas angostas.
-                                label = {
+                                label = if (compactNavigation) null else {{
                                     Text(
                                         tab.label,
                                         maxLines = 1,
                                         softWrap = false,
                                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
                                     )
-                                },
+                                }},
                                 colors = NavigationBarItemDefaults.colors(
                                     selectedIconColor = Brand,
                                     selectedTextColor = Brand,

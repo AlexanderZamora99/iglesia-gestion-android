@@ -320,13 +320,27 @@ fun MessageBanner(
         BannerTone.Error -> Triple(Danger, DangerSurface, Icons.Outlined.ErrorOutline)
         BannerTone.Success -> Triple(Success, SuccessSurface, Icons.Outlined.Check)
     }
+    val largeText = androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.15f
     Surface(color = container, shape = MaterialTheme.shapes.medium, modifier = modifier.fillMaxWidth()) {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(10.dp))
-            Text(message, color = content, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            if (actionLabel != null && onAction != null) {
-                TextButton(onClick = onAction) { Text(actionLabel, color = content) }
+        if (largeText) {
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.Top) {
+                Icon(icon, contentDescription = null, tint = content, modifier = Modifier.padding(top = 8.dp).size(20.dp))
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(message, color = content, style = MaterialTheme.typography.bodyMedium)
+                    if (actionLabel != null && onAction != null) {
+                        TextButton(onClick = onAction, modifier = Modifier.align(Alignment.End)) { Text(actionLabel, color = content) }
+                    }
+                }
+            }
+        } else {
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(10.dp))
+                Text(message, color = content, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                if (actionLabel != null && onAction != null) {
+                    TextButton(onClick = onAction) { Text(actionLabel, color = content) }
+                }
             }
         }
     }

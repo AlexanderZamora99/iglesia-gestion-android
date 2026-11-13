@@ -123,11 +123,11 @@ fun HomeScreen(
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SummaryTile("Tareas vencidas", overdueTasks, Icons.Outlined.TaskAlt, Modifier.weight(1f)) { onOpenAgenda(true) }
-                    SummaryTile("Otras tareas pendientes", pendingTasks, Icons.Outlined.TaskAlt, Modifier.weight(1f)) { onOpenAgenda(true) }
+                    SummaryTile("Vencidas", overdueTasks, Icons.Outlined.TaskAlt, Modifier.weight(1f)) { onOpenAgenda(true) }
+                    SummaryTile("Tareas pendientes", pendingTasks, Icons.Outlined.TaskAlt, Modifier.weight(1f)) { onOpenAgenda(true) }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SummaryTile("Elementos próximos 7 días", thisWeek, Icons.Outlined.CalendarMonth, Modifier.weight(1f)) { onOpenAgenda(true) }
+                    SummaryTile("Próx. 7 días", thisWeek, Icons.Outlined.CalendarMonth, Modifier.weight(1f)) { onOpenAgenda(true) }
                     SummaryTile("Avisos sin leer", unread.size, Icons.Outlined.NotificationsNone, Modifier.weight(1f), onOpenNotifications)
                 }
             }
@@ -200,10 +200,20 @@ private fun SummaryTile(
         onClick = onClick,
         contentPadding = 12.dp,
     ) {
-        Icon(icon, contentDescription = null, tint = BrandLight, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.height(8.dp))
-        Text(value.toString(), style = MaterialTheme.typography.headlineSmall, color = Brand)
-        Text(label, style = MaterialTheme.typography.bodySmall, color = TextSecondary, minLines = 2)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconBadge(icon, size = 36.dp)
+            Spacer(Modifier.width(10.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(value.toString(), style = MaterialTheme.typography.titleMedium, color = Brand)
+                Text(
+                    label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }
 
