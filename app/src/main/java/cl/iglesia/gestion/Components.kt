@@ -166,17 +166,17 @@ fun ScreenHeader(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier) {
-        Text(eyebrow.uppercase(AppLocale), style = MaterialTheme.typography.labelSmall, color = GoldText)
-        Spacer(Modifier.height(2.dp))
+        Text(eyebrow.uppercase(AppLocale), style = MaterialTheme.typography.labelSmall, color = BrandLight)
+        Spacer(Modifier.height(4.dp))
         Text(
             title,
             style = MaterialTheme.typography.headlineMedium,
-            color = Brand,
+            color = TextPrimary,
             modifier = Modifier.semantics { heading() },
         )
         if (subtitle != null) {
-            Spacer(Modifier.height(2.dp))
-            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+            Spacer(Modifier.height(5.dp))
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         }
     }
 }
@@ -195,7 +195,7 @@ fun SectionHeader(
     ) {
         Text(
             title,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleSmall,
             color = TextPrimary,
             modifier = Modifier.semantics { heading() },
         )
@@ -214,14 +214,14 @@ fun AppCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = CardDefaults.cardColors(containerColor = containerColor)
-    val border = BorderStroke(1.dp, CardBorder)
     val shape = MaterialTheme.shapes.large
+    val elevation = CardDefaults.cardElevation(defaultElevation = if (onClick != null) 1.dp else 0.dp, pressedElevation = 2.dp)
     if (onClick != null) {
-        Card(onClick = onClick, modifier = modifier.fillMaxWidth(), colors = colors, shape = shape, border = border) {
+        Card(onClick = onClick, modifier = modifier.fillMaxWidth(), colors = colors, shape = shape, elevation = elevation) {
             Column(Modifier.padding(contentPadding), content = content)
         }
     } else {
-        Card(modifier = modifier.fillMaxWidth(), colors = colors, shape = shape, border = border) {
+        Card(modifier = modifier.fillMaxWidth(), colors = colors, shape = shape, elevation = elevation) {
             Column(Modifier.padding(contentPadding), content = content)
         }
     }
@@ -237,7 +237,7 @@ fun Pill(text: String, content: Color, container: Color, modifier: Modifier = Mo
         modifier = modifier
             .clip(RoundedCornerShape(50))
             .background(container)
-            .padding(horizontal = 10.dp, vertical = 3.dp),
+            .padding(horizontal = 9.dp, vertical = 4.dp),
     )
 }
 

@@ -13,20 +13,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 // Paleta institucional. Todos los colores de texto cumplen WCAG AA (4.5:1) sobre blanco.
-val Brand = Color(0xFF1E3A8A)
-val BrandLight = Color(0xFF2563EB)
-val BrandSurface = Color(0xFFEFF6FF)
-val BrandContainer = Color(0xFFDBEAFE)
-val Gold = Color(0xFFC9A84C)
-val GoldText = Color(0xFF8A6A12)
-val GoldSurface = Color(0xFFFBF5E3)
-val AppBackground = Color(0xFFF5F7FB)
-val CardBorder = Color(0xFFE2E8F0)
-val MutedSurface = Color(0xFFF1F5F9)
-val TextPrimary = Color(0xFF0F172A)
-val TextSecondary = Color(0xFF475569)
+val Brand = Color(0xFF193B55)
+val BrandLight = Color(0xFF34779A)
+val BrandSurface = Color(0xFFF0F6F8)
+val BrandContainer = Color(0xFFDCEBF0)
+val Gold = Color(0xFFD5B66A)
+val GoldText = Color(0xFF725B27)
+val GoldSurface = Color(0xFFFAF6EA)
+val AppBackground = Color(0xFFF7F8FA)
+val CardBorder = Color(0xFFE9EDF1)
+val MutedSurface = Color(0xFFF2F4F6)
+val TextPrimary = Color(0xFF18232D)
+val TextSecondary = Color(0xFF53616D)
 // Más oscuro que slate-500 para mantener 4.5:1 también sobre AppBackground y MutedSurface.
-val TextMuted = Color(0xFF5B6B80)
+val TextMuted = Color(0xFF64727D)
 val Success = Color(0xFF15803D)
 val SuccessSurface = Color(0xFFDCFCE7)
 val Warning = Color(0xFFB45309)
@@ -45,27 +45,29 @@ fun statusStyle(status: String, feminine: Boolean = true): StatusStyle = when (s
     else -> StatusStyle("Sin estado", TextSecondary, MutedSurface)
 }
 
-// Escala ampliada: la mayoría de los usuarios son personas mayores. Ningún texto
-// baja de 15 sp y el cuerpo principal usa 18 sp, con interlineado generoso.
+// Jerarquía tipográfica moderada; los tamaños en sp respetan la escala del sistema.
 private val ChurchTypography = Typography(
-    headlineMedium = TextStyle(fontSize = 30.sp, lineHeight = 38.sp, fontWeight = FontWeight.Bold, color = TextPrimary),
-    headlineSmall = TextStyle(fontSize = 26.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold),
-    titleLarge = TextStyle(fontSize = 24.sp, lineHeight = 32.sp, fontWeight = FontWeight.SemiBold),
-    titleMedium = TextStyle(fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold),
-    titleSmall = TextStyle(fontSize = 19.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold),
-    bodyLarge = TextStyle(fontSize = 19.sp, lineHeight = 28.sp),
-    bodyMedium = TextStyle(fontSize = 18.sp, lineHeight = 26.sp),
-    bodySmall = TextStyle(fontSize = 16.sp, lineHeight = 23.sp),
-    labelLarge = TextStyle(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold),
-    labelMedium = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium),
-    labelSmall = TextStyle(fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.4.sp),
+    displayLarge = TextStyle(fontSize = 36.sp, lineHeight = 42.sp, fontWeight = FontWeight.Bold, color = TextPrimary, letterSpacing = (-0.8).sp),
+    displayMedium = TextStyle(fontSize = 32.sp, lineHeight = 38.sp, fontWeight = FontWeight.Bold, color = TextPrimary, letterSpacing = (-0.5).sp),
+    headlineLarge = TextStyle(fontSize = 30.sp, lineHeight = 36.sp, fontWeight = FontWeight.Bold, color = TextPrimary, letterSpacing = (-0.4).sp),
+    headlineMedium = TextStyle(fontSize = 27.sp, lineHeight = 33.sp, fontWeight = FontWeight.Bold, color = TextPrimary, letterSpacing = (-0.3).sp),
+    headlineSmall = TextStyle(fontSize = 23.sp, lineHeight = 29.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary),
+    titleLarge = TextStyle(fontSize = 21.sp, lineHeight = 27.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary),
+    titleMedium = TextStyle(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary),
+    titleSmall = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary),
+    bodyLarge = TextStyle(fontSize = 17.sp, lineHeight = 25.sp, color = TextPrimary),
+    bodyMedium = TextStyle(fontSize = 16.sp, lineHeight = 23.sp, color = TextPrimary),
+    bodySmall = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, color = TextSecondary),
+    labelLarge = TextStyle(fontSize = 15.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold),
+    labelMedium = TextStyle(fontSize = 14.sp, lineHeight = 19.sp, fontWeight = FontWeight.Medium),
+    labelSmall = TextStyle(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.6.sp),
 )
 
 private val ChurchShapes = Shapes(
-    extraSmall = RoundedCornerShape(6.dp),
-    small = RoundedCornerShape(10.dp),
-    medium = RoundedCornerShape(14.dp),
-    large = RoundedCornerShape(18.dp),
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(20.dp),
     extraLarge = RoundedCornerShape(28.dp),
 )
 
