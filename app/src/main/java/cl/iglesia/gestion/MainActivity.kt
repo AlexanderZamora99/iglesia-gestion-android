@@ -96,7 +96,7 @@ import kotlinx.coroutines.launch
 enum class AppTab(val label: String, val icon: ImageVector) {
     Home("Inicio", Icons.Outlined.Home),
     Calendar("Agenda", Icons.Outlined.CalendarMonth),
-    Ministries("Ministerios", Icons.Outlined.Groups),
+    Ministries("Equipos", Icons.Outlined.Groups),
     Projects("Proyectos", Icons.Outlined.FolderOpen),
     More("Más", Icons.Outlined.Menu),
 }
@@ -488,7 +488,7 @@ private fun ChurchApp() {
                                         tab.label,
                                         maxLines = 1,
                                         softWrap = false,
-                                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 14.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
                                     )
                                 },
                                 colors = NavigationBarItemDefaults.colors(
