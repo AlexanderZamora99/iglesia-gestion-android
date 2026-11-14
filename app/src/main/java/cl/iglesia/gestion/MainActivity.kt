@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.navigationBars
@@ -27,11 +29,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.CalendarMonth
@@ -54,9 +58,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -83,7 +84,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -94,17 +98,119 @@ import io.github.jan.supabase.gotrue.SessionStatus
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.gotrue.providers.builtin.Email
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 enum class AppTab(val label: String, val icon: ImageVector) {
     Home("Inicio", Icons.Outlined.Home),
     Calendar("Agenda", Icons.Outlined.CalendarMonth),
-    Ministries("Ministerios", Icons.Outlined.Groups),
+    Ministries("Equipos", Icons.Outlined.Groups),
     Projects("Proyectos", Icons.Outlined.FolderOpen),
     More("Más", Icons.Outlined.Menu),
 }
 
 enum class MorePage { Menu, Worship, Records, Personnel, Notifications, Privacy }
+
+@Composable
+private fun TabNavigationDestination(
+    tab: AppTab,
+    selected: Boolean,
+    unread: Int,
+    singleRowMode: Boolean,
+    modifier: Modifier = Modifier,
+    onSelect: () -> Unit,
+) {
+    val iconColor by animateColorAsState(
+        targetValue = if (selected) Brand else Color.White.copy(alpha = 0.68f),
+        label = "tab icon color",
+    )
+    val labelColor by animateColorAsState(
+        targetValue = when {
+            singleRowMode && selected -> Brand
+            selected -> Color.White
+            else -> Color.White.copy(alpha = 0.68f)
+        },
+        label = "tab label color",
+    )
+    val indicatorColor by animateColorAsState(
+        targetValue = if (selected) Color.White else Color.Transparent,
+        label = "tab selection indicator",
+    )
+    val baseModifier = modifier
+        .clip(RoundedCornerShape(28.dp))
+        .clickable(onClick = onSelect)
+        .semantics {
+            contentDescription = tab.label
+            role = Role.Tab
+            this.selected = selected
+        }
+
+    if (singleRowMode && selected) {
+        Row(
+            modifier = baseModifier
+                .padding(vertical = 3.dp)
+                .background(indicatorColor, RoundedCornerShape(28.dp))
+                .padding(horizontal = 10.dp, vertical = 9.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TabIcon(tab, unread, iconColor)
+            Spacer(Modifier.width(7.dp))
+            Text(
+                tab.label,
+                color = labelColor,
+                maxLines = 1,
+                softWrap = false,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    fontSize = 12.sp,
+                ),
+            )
+        }
+    } else {
+        Column(
+            modifier = baseModifier.padding(vertical = 3.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(width = 52.dp, height = 34.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(if (selected) indicatorColor else Color.Transparent),
+                contentAlignment = Alignment.Center,
+            ) {
+                TabIcon(tab, unread, iconColor)
+            }
+            if (!singleRowMode) {
+                Text(
+                    tab.label,
+                    color = labelColor,
+                    maxLines = 2,
+                    softWrap = true,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Medium,
+                        fontSize = 12.sp,
+                    ),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TabIcon(tab: AppTab, unread: Int, tint: Color) {
+    if (tab == AppTab.More && unread > 0) {
+        BadgedBox(badge = { Badge() }) {
+            Icon(tab.icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
+        }
+    } else {
+        Icon(tab.icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
+    }
+}
 
 /** Formularios que pueden abrirse sobre cualquier pantalla. */
 sealed interface FormRequest {
@@ -153,6 +259,14 @@ class MainActivity : ComponentActivity() {
 
 private const val LOAD_ERROR =
     "No se pudieron cargar los datos. Revisa tu conexión y vuelve a intentarlo."
+private const val PROJECT_READ_PERMISSION_ERROR =
+    "El servidor no permite leer los proyectos. Contacta al administrador para revisar los permisos de Supabase."
+
+private fun moduleLoadError(error: Throwable): String {
+    val isProjectPermissionDenied = generateSequence(error) { it.cause }
+        .any { it.message.orEmpty().contains("permission denied for table proyecto", ignoreCase = true) }
+    return if (isProjectPermissionDenied) PROJECT_READ_PERMISSION_ERROR else LOAD_ERROR
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -164,6 +278,7 @@ private fun ChurchApp() {
     var sessionChecked by remember { mutableStateOf(false) }
     var authMessage by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
     var modulesLoading by remember { mutableStateOf(false) }
+    var pullRefreshing by remember { mutableStateOf(false) }
     var moduleError by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
     val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
@@ -196,8 +311,8 @@ private fun ChurchApp() {
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            android.util.Log.w("ChurchApp", "Carga fallida", error)
-            moduleError = LOAD_ERROR
+            logFailure("ChurchApp", "Carga de datos fallida", error)
+            moduleError = moduleLoadError(error)
         } finally {
             modulesLoading = false
         }
@@ -219,7 +334,7 @@ private fun ChurchApp() {
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            android.util.Log.w("ChurchApp", "No se pudo cargar el perfil", error)
+            logFailure("ChurchApp", "Carga del perfil fallida", error)
             currentMember = null
             val rejected = error is io.github.jan.supabase.exceptions.RestException ||
                 error.message?.startsWith("Esta cuenta") == true
@@ -316,7 +431,7 @@ private fun ChurchApp() {
                     } catch (error: CancellationException) {
                         throw error
                     } catch (error: Exception) {
-                        android.util.Log.w("ChurchApp", "No se pudo solicitar la recuperación", error)
+                        logFailure("ChurchApp", "Solicitud de recuperación fallida", error)
                         authMessage = "No fue posible solicitar el restablecimiento. Revisa tu conexión e inténtalo de nuevo." to true
                     } finally {
                         authLoading = false
@@ -334,7 +449,7 @@ private fun ChurchApp() {
                     } catch (error: CancellationException) {
                         throw error
                     } catch (error: Exception) {
-                        android.util.Log.w("ChurchApp", "Recuperación rechazada", error)
+                        logFailure("ChurchApp", "Recuperación rechazada", error)
                         authMessage = (
                             (error as? UserFacingException)?.message
                                 ?: "El código no es válido o ya venció. Pide uno nuevo e inténtalo otra vez."
@@ -366,7 +481,7 @@ private fun ChurchApp() {
                         } catch (error: CancellationException) {
                             throw error
                         } catch (error: Exception) {
-                            android.util.Log.w("ChurchApp", "Cambio de contraseña inicial rechazado", error)
+                            logFailure("ChurchApp", "Cambio de contraseña inicial rechazado", error)
                             forcedError = (error as? UserFacingException)?.message
                                 ?: "No se pudo cambiar la contraseña. Revisa tu conexión e inténtalo de nuevo."
                         } finally {
@@ -413,7 +528,7 @@ private fun ChurchApp() {
                     } catch (error: CancellationException) {
                         throw error
                     } catch (error: Exception) {
-                        android.util.Log.w("ChurchApp", "Operación rechazada", error)
+                        logFailure("ChurchApp", "Operación rechazada", error)
                         val detail = (error as? UserFacingException)?.message
                             ?: "No se pudo guardar. Verifica los datos, tu conexión y tus permisos."
                         if (error is PartialSaveException && closeForm) {
@@ -444,7 +559,7 @@ private fun ChurchApp() {
                     } catch (error: CancellationException) {
                         throw error
                     } catch (error: Exception) {
-                        android.util.Log.w("ChurchApp", "No se pudo abrir el archivo", error)
+                        logFailure("ChurchApp", "Apertura de archivo fallida", error)
                         snackbar.showSnackbar("No se pudo abrir \"${file.name}\". Verifica tu conexión y tus permisos.")
                     }
                 }
@@ -457,6 +572,7 @@ private fun ChurchApp() {
                 currentTab = AppTab.Home
             }
 
+            val compactNavigation = androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.15f
             Scaffold(
                 containerColor = AppBackground,
                 snackbarHost = { SnackbarHost(snackbar) },
@@ -472,47 +588,91 @@ private fun ChurchApp() {
                     )
                 },
                 bottomBar = {
-                    NavigationBar(containerColor = Color.White, windowInsets = WindowInsets.navigationBars) {
-                        AppTab.entries.forEach { tab ->
-                            NavigationBarItem(
-                                selected = currentTab == tab,
-                                onClick = {
-                                    if (tab == AppTab.More) morePage = MorePage.Menu
-                                    currentTab = tab
-                                },
-                                icon = {
-                                    if (tab == AppTab.More && unread > 0) {
-                                        BadgedBox(badge = { Badge() }) { Icon(tab.icon, contentDescription = null, modifier = Modifier.size(28.dp)) }
-                                    } else {
-                                        Icon(tab.icon, contentDescription = null, modifier = Modifier.size(28.dp))
+                    Surface(color = AppBackground) {
+                        val navigationModifier = Modifier
+                            .fillMaxWidth()
+                            .windowInsetsPadding(WindowInsets.navigationBars)
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                        Surface(
+                            modifier = navigationModifier,
+                            color = TextPrimary,
+                            shape = RoundedCornerShape(36.dp),
+                            shadowElevation = 8.dp,
+                        ) {
+                            if (compactNavigation) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 5.dp),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                ) {
+                                    Row(Modifier.fillMaxWidth()) {
+                                        AppTab.entries.take(3).forEach { tab ->
+                                            TabNavigationDestination(
+                                                tab = tab,
+                                                selected = currentTab == tab,
+                                                unread = unread,
+                                                singleRowMode = false,
+                                                modifier = Modifier.weight(1f),
+                                                onSelect = {
+                                                    if (tab == AppTab.More) morePage = MorePage.Menu
+                                                    currentTab = tab
+                                                },
+                                            )
+                                        }
                                     }
-                                },
-                                // Cinco pestañas: 15 sp es el mínimo de la app. Con `unbounded` la etiqueta puede usar
-                                // todo el ancho de su pestaña (no solo el interior) y "Ministerios" no se corta.
-                                label = {
-                                    Text(
-                                        tab.label,
-                                        maxLines = 1,
-                                        softWrap = false,
-                                        modifier = Modifier.wrapContentWidth(unbounded = true),
-                                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 15.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
-                                    )
-                                },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = Brand,
-                                    selectedTextColor = Brand,
-                                    indicatorColor = BrandContainer,
-                                    unselectedIconColor = TextMuted,
-                                    unselectedTextColor = TextMuted,
-                                ),
-                            )
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                                        AppTab.entries.drop(3).forEach { tab ->
+                                            TabNavigationDestination(
+                                                tab = tab,
+                                                selected = currentTab == tab,
+                                                unread = unread,
+                                                singleRowMode = false,
+                                                modifier = Modifier.weight(1f).widthIn(max = 160.dp),
+                                                onSelect = {
+                                                    if (tab == AppTab.More) morePage = MorePage.Menu
+                                                    currentTab = tab
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                Row(Modifier.fillMaxWidth().padding(4.dp)) {
+                                    AppTab.entries.forEach { tab ->
+                                        val selected = currentTab == tab
+                                        TabNavigationDestination(
+                                            tab = tab,
+                                            selected = selected,
+                                            unread = unread,
+                                            singleRowMode = true,
+                                            modifier = Modifier.weight(if (selected) 2.2f else 1f),
+                                            onSelect = {
+                                                if (tab == AppTab.More) morePage = MorePage.Menu
+                                                currentTab = tab
+                                            },
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 },
             ) { padding ->
                 PullToRefreshBox(
-                    isRefreshing = modulesLoading && snapshot != null,
-                    onRefresh = { coroutineScope.launch { reload(member) } },
+                    isRefreshing = pullRefreshing,
+                    onRefresh = {
+                        if (!pullRefreshing && !modulesLoading) {
+                            coroutineScope.launch {
+                                pullRefreshing = true
+                                try {
+                                    withTimeout(30_000) { reload(member) }
+                                } catch (_: TimeoutCancellationException) {
+                                    moduleError = "La recarga tardó demasiado. Revisa tu conexión e inténtalo de nuevo."
+                                } finally {
+                                    pullRefreshing = false
+                                }
+                            }
+                        }
+                    },
                     modifier = Modifier.fillMaxSize().padding(padding),
                 ) {
                     Column(Modifier.fillMaxSize()) {
@@ -904,7 +1064,7 @@ private fun ChurchApp() {
                             } catch (error: CancellationException) {
                                 throw error
                             } catch (error: Exception) {
-                                android.util.Log.w("ChurchApp", "Detalles de la cuenta nueva sin guardar", error)
+                                logFailure("ChurchApp", "Detalles de cuenta nueva sin guardar", error)
                                 throw PartialSaveException(
                                     "La cuenta se creó, pero no se guardaron el rol, el teléfono o el liderazgo. Edítalos desde la cuenta.",
                                 )
@@ -1248,8 +1408,8 @@ private fun LoginScreen(
                     }
                     Button(
                         onClick = submit,
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
-                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                        shape = RoundedCornerShape(50.dp),
                         enabled = canSubmit,
                     ) {
                         if (loading) {

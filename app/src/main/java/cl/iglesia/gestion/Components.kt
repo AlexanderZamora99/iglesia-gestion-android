@@ -182,17 +182,17 @@ fun ScreenHeader(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier) {
-        Text(eyebrow.uppercase(AppLocale), style = MaterialTheme.typography.labelSmall, color = GoldText)
-        Spacer(Modifier.height(2.dp))
+        Text(eyebrow.uppercase(AppLocale), style = MaterialTheme.typography.labelSmall, color = BrandLight)
+        Spacer(Modifier.height(4.dp))
         Text(
             title,
             style = MaterialTheme.typography.headlineMedium,
-            color = Brand,
+            color = TextPrimary,
             modifier = Modifier.semantics { heading() },
         )
         if (subtitle != null) {
-            Spacer(Modifier.height(2.dp))
-            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+            Spacer(Modifier.height(5.dp))
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         }
     }
 }
@@ -211,7 +211,7 @@ fun SectionHeader(
     ) {
         Text(
             title,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleSmall,
             color = TextPrimary,
             modifier = Modifier.semantics { heading() },
         )
@@ -230,14 +230,14 @@ fun AppCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = CardDefaults.cardColors(containerColor = containerColor)
-    val border = BorderStroke(1.dp, CardBorder)
     val shape = MaterialTheme.shapes.large
+    val elevation = CardDefaults.cardElevation(defaultElevation = if (onClick != null) 1.dp else 0.dp, pressedElevation = 2.dp)
     if (onClick != null) {
-        Card(onClick = onClick, modifier = modifier.fillMaxWidth(), colors = colors, shape = shape, border = border) {
+        Card(onClick = onClick, modifier = modifier.fillMaxWidth(), colors = colors, shape = shape, elevation = elevation) {
             Column(Modifier.padding(contentPadding), content = content)
         }
     } else {
-        Card(modifier = modifier.fillMaxWidth(), colors = colors, shape = shape, border = border) {
+        Card(modifier = modifier.fillMaxWidth(), colors = colors, shape = shape, elevation = elevation) {
             Column(Modifier.padding(contentPadding), content = content)
         }
     }
@@ -253,7 +253,7 @@ fun Pill(text: String, content: Color, container: Color, modifier: Modifier = Mo
         modifier = modifier
             .clip(RoundedCornerShape(50))
             .background(container)
-            .padding(horizontal = 10.dp, vertical = 3.dp),
+            .padding(horizontal = 9.dp, vertical = 4.dp),
     )
 }
 
@@ -336,13 +336,27 @@ fun MessageBanner(
         BannerTone.Error -> Triple(Danger, DangerSurface, Icons.Outlined.ErrorOutline)
         BannerTone.Success -> Triple(Success, SuccessSurface, Icons.Outlined.Check)
     }
+    val largeText = androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.15f
     Surface(color = container, shape = MaterialTheme.shapes.medium, modifier = modifier.fillMaxWidth()) {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(10.dp))
-            Text(message, color = content, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            if (actionLabel != null && onAction != null) {
-                TextButton(onClick = onAction) { Text(actionLabel, color = content) }
+        if (largeText) {
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.Top) {
+                Icon(icon, contentDescription = null, tint = content, modifier = Modifier.padding(top = 8.dp).size(20.dp))
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(message, color = content, style = MaterialTheme.typography.bodyMedium)
+                    if (actionLabel != null && onAction != null) {
+                        TextButton(onClick = onAction, modifier = Modifier.align(Alignment.End)) { Text(actionLabel, color = content) }
+                    }
+                }
+            }
+        } else {
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(10.dp))
+                Text(message, color = content, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                if (actionLabel != null && onAction != null) {
+                    TextButton(onClick = onAction) { Text(actionLabel, color = content) }
+                }
             }
         }
     }
@@ -410,6 +424,16 @@ fun FieldLabel(text: String, required: Boolean = false) {
         style = MaterialTheme.typography.labelLarge,
         color = TextPrimary,
     )
+}
+
+@Composable
+fun FormSection(title: String, description: String? = null) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(top = 6.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium, color = Brand)
+        if (description != null) {
+            Text(description, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+        }
+    }
 }
 
 @Composable
@@ -488,30 +512,35 @@ fun FullScreenForm(
             },
             bottomBar = {
                 Surface(color = Color.White, shadowElevation = 8.dp) {
-                    Button(
-                        onClick = {
-                            if (canConfirm) {
-                                onConfirm()
-                            } else {
-                                triedToSave = true
-                                coroutineScope.launch { scrollState.animateScrollTo(0) }
-                            }
-                        },
-                        enabled = !submitting,
-                        modifier = Modifier
+                    Column(
+                        Modifier
                             .fillMaxWidth()
                             .navigationBarsPadding()
                             .imePadding()
-                            .padding(16.dp)
-                            .height(52.dp),
-                        shape = MaterialTheme.shapes.medium,
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        if (submitting) {
-                            CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                            Spacer(Modifier.width(10.dp))
-                            Text("Guardando…")
-                        } else {
-                            Text(confirmLabel)
+                        // El botón nunca se ve "muerto": si faltan datos, al tocarlo se explica qué pasa.
+                        Button(
+                            onClick = {
+                                if (canConfirm) {
+                                    onConfirm()
+                                } else {
+                                    triedToSave = true
+                                    coroutineScope.launch { scrollState.animateScrollTo(0) }
+                                }
+                            },
+                            enabled = !submitting,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                            shape = RoundedCornerShape(50.dp),
+                        ) {
+                            if (submitting) {
+                                CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                                Spacer(Modifier.width(10.dp))
+                                Text("Guardando…")
+                            } else {
+                                Text(confirmLabel)
+                            }
                         }
                     }
                 }
@@ -740,8 +769,16 @@ fun MemberPicker(
 ) {
     var query by remember { mutableStateOf("") }
     val visible = members.filter { it.name.contains(query.trim(), ignoreCase = true) }
+    val selectedCount = selectedIds.count { id -> members.any { it.id == id } }
     if (members.size > 6) {
         TextInput(value = query, onValueChange = { query = it }, label = "Buscar persona")
+    }
+    if (multiSelect && selectedCount > 0) {
+        Text(
+            "$selectedCount ${if (selectedCount == 1) "persona seleccionada" else "personas seleccionadas"}",
+            style = MaterialTheme.typography.bodySmall,
+            color = Brand,
+        )
     }
     if (members.isEmpty()) {
         Text(emptyMessage, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
@@ -763,6 +800,14 @@ fun MemberPicker(
                             },
                         )
                     },
+                )
+            }
+            if (visible.isEmpty() && members.isNotEmpty()) {
+                Text(
+                    "No encontramos personas con ese nombre.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 )
             }
         }

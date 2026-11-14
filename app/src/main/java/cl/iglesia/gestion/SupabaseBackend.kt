@@ -303,7 +303,7 @@ object SupabaseBackend {
                     } catch (error: CancellationException) {
                         throw error
                     } catch (error: Exception) {
-                        android.util.Log.w("SupabaseBackend", "Responsables no disponibles", error)
+                        logFailure("SupabaseBackend", "Búsqueda de responsables fallida", error)
                         emptyList()
                     }
                 }
@@ -445,7 +445,7 @@ object SupabaseBackend {
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            android.util.Log.w("SupabaseBackend", "No se pudo crear la reunión", error)
+            logFailure("SupabaseBackend", "Creación de reunión fallida", error)
             throw UserFacingException(
                 "No se pudo guardar el registro." +
                     if (draft.meetingId != null) " Esa reunión podría tener ya un registro." else "",
@@ -460,7 +460,7 @@ object SupabaseBackend {
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                android.util.Log.w("SupabaseBackend", "No se pudo guardar la visibilidad", error)
+                logFailure("SupabaseBackend", "Guardado de visibilidad fallido", error)
                 // Sin filas de visibilidad solo el Pastor lo vería: se deshace para no dejarlo a medias.
                 runCatching { client.from("reunion").delete { filter { eq("id", recordId) } } }
                 throw UserFacingException("No se pudo guardar quién puede ver el registro, por lo que no se creó.")
@@ -473,7 +473,7 @@ object SupabaseBackend {
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                android.util.Log.w("SupabaseBackend", "No se pudo adjuntar ${file.name}", error)
+                logFailure("SupabaseBackend", "Adjunto de archivo fallido", error)
                 true
             }
         }
@@ -500,7 +500,7 @@ object SupabaseBackend {
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            android.util.Log.w("SupabaseBackend", "No se pudo eliminar el registro", error)
+            logFailure("SupabaseBackend", "Eliminación de registro fallida", error)
             throw UserFacingException("No se pudo eliminar el registro.")
         }
         if (deleted.isEmpty()) throw UserFacingException("Solo el Pastor/Administrador puede eliminar registros.")
@@ -561,7 +561,7 @@ object SupabaseBackend {
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            android.util.Log.w("SupabaseBackend", "No se pudieron eliminar objetos de Storage", error)
+            logFailure("SupabaseBackend", "Eliminación de archivos fallida", error)
         }
     }
 
@@ -861,7 +861,7 @@ object SupabaseBackend {
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            android.util.Log.w("SupabaseBackend", "No se pudo crear la canción", error)
+            logFailure("SupabaseBackend", "Creación de canción fallida", error)
             throw UserFacingException("No se pudo guardar la canción. Solo el Pastor o el líder de Alabanza puede agregarlas.")
         }
         val failed = files.filter { file ->
@@ -871,7 +871,7 @@ object SupabaseBackend {
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                android.util.Log.w("SupabaseBackend", "No se pudo adjuntar ${file.name}", error)
+                logFailure("SupabaseBackend", "Adjunto de archivo musical fallido", error)
                 true
             }
         }
@@ -900,7 +900,7 @@ object SupabaseBackend {
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            android.util.Log.w("SupabaseBackend", "No se pudo actualizar la canción", error)
+            logFailure("SupabaseBackend", "Actualización de canción fallida", error)
             throw UserFacingException("No se pudo guardar la canción.")
         }
         // RLS afecta 0 filas sin error cuando no hay permiso.
@@ -920,7 +920,7 @@ object SupabaseBackend {
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            android.util.Log.w("SupabaseBackend", "No se pudo eliminar la canción", error)
+            logFailure("SupabaseBackend", "Eliminación de canción fallida", error)
             throw UserFacingException("No se pudo eliminar la canción.")
         }
         if (deleted.isEmpty()) throw UserFacingException("No tienes permiso para eliminar canciones.")
@@ -955,7 +955,7 @@ object SupabaseBackend {
         } catch (error: UserFacingException) {
             throw error
         } catch (error: Exception) {
-            android.util.Log.w("SupabaseBackend", "No se pudo guardar el repertorio", error)
+            logFailure("SupabaseBackend", "Guardado de repertorio fallido", error)
             throw UserFacingException("No se pudo guardar el repertorio. Solo el Pastor o el líder de Alabanza puede editarlo.")
         }
         val rows = StagingWorship.repertoireRows(repertoireId, songs)
@@ -969,7 +969,7 @@ object SupabaseBackend {
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            android.util.Log.w("SupabaseBackend", "No se pudieron guardar las canciones del repertorio", error)
+            logFailure("SupabaseBackend", "Guardado de canciones del repertorio fallido", error)
             val restored = previous.isEmpty() || runCatching {
                 client.from("repertorio_cancion").insert(previous.map { RepertorioCancionInsert(it) })
             }.isSuccess
@@ -1077,7 +1077,7 @@ object SupabaseBackend {
             val serverMessage = Regex("\"error\"\\s*:\\s*\"([^\"]+)\"").find(raw)?.groupValues?.get(1)
             throw UserFacingException(StagingAccounts.createUserErrorMessage(error.statusCode, serverMessage))
         } catch (error: Exception) {
-            android.util.Log.w("SupabaseBackend", "create-user no disponible", error)
+            logFailure("SupabaseBackend", "Servicio de creación de cuentas no disponible", error)
             throw UserFacingException("No se pudo contactar el servicio de cuentas. Revisa tu conexión e inténtalo de nuevo.")
         }
         val text = response.bodyAsText()
@@ -1124,7 +1124,7 @@ object SupabaseBackend {
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            android.util.Log.w("SupabaseBackend", "No se pudo guardar la contraseña nueva", error)
+            logFailure("SupabaseBackend", "Guardado de contraseña fallido", error)
             throw UserFacingException(
                 "El código era correcto, pero no se pudo guardar la contraseña nueva. Cámbiala en Más › Cambiar mi contraseña.",
             )

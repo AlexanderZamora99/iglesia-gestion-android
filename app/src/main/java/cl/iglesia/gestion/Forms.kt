@@ -116,6 +116,7 @@ fun ProjectForm(
             )
         },
     ) {
+        FormSection("Información del proyecto", "Define el propósito y quién lo coordina.")
         MessageBanner("Los proyectos son institucionales: pertenecen a toda la iglesia, no a un ministerio.", BannerTone.Info)
         TextInput(name, { name = it }, "Nombre", required = true)
         TextInput(objective, { objective = it }, "Objetivo", required = true, singleLine = false, minLines = 2)
@@ -134,6 +135,7 @@ fun ProjectForm(
             style = MaterialTheme.typography.bodySmall,
             color = TextMuted,
         )
+        FormSection("Presupuesto", "Estos valores son opcionales.")
         TextInput(
             budgetEstimated,
             { budgetEstimated = it.digitsOnly() },
@@ -244,6 +246,7 @@ fun ActivityForm(
             )
         },
     ) {
+        FormSection("Detalles de la actividad", "Indica qué se hará y dónde se organiza.")
         TextInput(title, { title = it }, "Título", required = true)
         FieldLabel("Tipo", required = true)
         ChoiceChips(types, category, { it }, ::selectCategory)
@@ -293,6 +296,7 @@ fun ActivityForm(
         }
 
         // En un Ensayo, las personas elegidas son las invitadas: lo verán en su agenda personal.
+        FormSection("Personas", "Selecciona al menos una persona para asignar o invitar.")
         FieldLabel(if (category == ActivityTypes.ENSAYO) "Invitados al ensayo" else "Responsables", required = true)
         if (classification == Classification.Ministry && ministryId == null) {
             Text("Elige primero el ministerio.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
@@ -306,6 +310,7 @@ fun ActivityForm(
             )
         }
 
+        FormSection("Fecha y lugar")
         DateField("Fecha *", date, { it?.let { date = it } })
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TimeField("Inicio", startTime, { startTime = it }, Modifier.weight(1f))
@@ -316,6 +321,7 @@ fun ActivityForm(
         TextInput(description, { description = it }, "Descripción", singleLine = false, minLines = 3)
 
         if (isCulto && currentMember.isPastor) {
+            FormSection("Equipo del culto", "Asigna quién predica y quién dirige la alabanza.")
             FieldLabel("Predicador", required = true)
             MemberPicker(activeMembers, setOfNotNull(preacherId), multiSelect = false, onChange = { preacherId = it.firstOrNull() }, emptyMessage = "No hay personas visibles.")
             FieldLabel("Director de alabanza", required = true)
@@ -451,6 +457,7 @@ fun TaskForm(
             }
         },
     ) {
+        FormSection("Detalles de la tarea", "Describe el trabajo y vincúlalo a una actividad.")
         FieldLabel("Actividad", required = true)
         if (parents.isEmpty()) {
             MessageBanner("Primero crea una actividad en un ministerio que gestiones.", BannerTone.Info)
@@ -465,6 +472,7 @@ fun TaskForm(
         TextInput(title, { title = it }, "Título", required = true)
         TextInput(instructions, { instructions = it }, "Instrucciones", required = true, singleLine = false, minLines = 3)
         FieldLabel("Responsable", required = true)
+        Text("Elige una persona activa del equipo para que la tarea aparezca en sus pendientes.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         if (parent == null) {
             Text("Elige primero la actividad.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         } else {
