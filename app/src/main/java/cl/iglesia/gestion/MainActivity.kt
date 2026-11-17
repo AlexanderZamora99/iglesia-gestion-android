@@ -1159,10 +1159,8 @@ private fun ChurchTopBar(member: Member, unread: Int, onNotifications: () -> Uni
                     contentAlignment = Alignment.Center,
                 ) { Text("✝", color = Gold, fontSize = 20.sp) }
                 Spacer(Modifier.width(10.dp))
-                Column {
-                    Text("Centro Mundial", color = Color.White, style = MaterialTheme.typography.titleSmall, maxLines = 1)
-                    Text("Adoración y Alabanza", color = Color.White.copy(alpha = 0.78f), style = MaterialTheme.typography.bodySmall, maxLines = 1)
-                }
+                // Una sola línea: el nombre completo aparece en Privacidad y en el inicio de sesión.
+                Text("Centro Mundial", color = Color.White, style = MaterialTheme.typography.titleMedium, maxLines = 1)
             }
         },
         actions = {

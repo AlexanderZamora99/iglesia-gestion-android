@@ -53,6 +53,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 
@@ -74,76 +80,132 @@ fun MoreScreen(
         contentPadding = ListPadding,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item { ScreenHeader("Accesos y cuenta", "Herramientas", "Funciones de apoyo, administración y configuración de tu cuenta.") }
+        item { ScreenHeader("Cuenta y herramientas", "Más") }
         item {
             AppCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Avatar(member.initials, size = 52.dp)
+                    Avatar(member.initials, size = 48.dp)
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
                         Text(member.name, style = MaterialTheme.typography.titleMedium)
-                        Text(member.role, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                        val myMinistries = ministries.filter { it.id in member.ministryIds }
+                        Text(
+                            buildString {
+                                append(member.role)
+                                if (myMinistries.isNotEmpty()) {
+                                    append(" · ")
+                                    append(myMinistries.joinToString { it.shortName + if (it.id in member.ledMinistryIds) " (líder)" else "" })
+                                }
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary,
+                        )
                         if (member.email.isNotBlank()) Text(member.email, style = MaterialTheme.typography.bodySmall, color = TextMuted)
                     }
                 }
-                val myMinistries = ministries.filter { it.id in member.ministryIds }
-                if (myMinistries.isNotEmpty()) {
-                    Spacer(Modifier.height(10.dp))
-                    Text(
-                        "Ministerios: " + myMinistries.joinToString { it.shortName + if (it.id in member.ledMinistryIds) " (líder)" else "" },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary,
-                    )
-                }
             }
         }
-        item { MoreOption(Icons.Outlined.MusicNote, "Alabanza", "Repertorios de cultos y catálogo de canciones", onClick = onWorship) }
-        item { MoreOption(Icons.Outlined.Description, "Registros de reuniones", "Resúmenes, archivos y presentaciones", onClick = onRecords) }
         item {
-            MoreOption(
-                Icons.Outlined.People,
-                if (member.isPastor) "Usuarios" else "Personal",
-                if (member.isPastor) "Crear cuentas, roles, ministerios y acceso" else "Directorio de líderes y colaboradores",
-                onClick = onPersonnel,
+            MoreGroup(
+                "Ministerio",
+                listOf(
+                    MoreEntry(Icons.Outlined.MusicNote, "Alabanza", "Repertorios y catálogo de canciones", onClick = onWorship),
+                    MoreEntry(Icons.Outlined.Description, "Registros de reuniones", "Resúmenes, archivos y presentaciones", onClick = onRecords),
+                ),
             )
         }
-        item { MoreOption(Icons.Outlined.Lock, "Cambiar mi contraseña", "Actualiza la contraseña de tu cuenta", onClick = onChangePassword) }
         item {
-            MoreOption(
-                Icons.Outlined.NotificationsNone,
-                "Avisos",
-                if (unreadNotifications == 0) "No tienes avisos sin leer" else "$unreadNotifications avisos sin leer",
-                badge = unreadNotifications,
-                onClick = onNotifications,
+            MoreGroup(
+                if (member.isPastor) "Administración" else "Equipo",
+                listOf(
+                    MoreEntry(
+                        Icons.Outlined.People,
+                        if (member.isPastor) "Usuarios" else "Personal",
+                        if (member.isPastor) "Crear cuentas, roles, ministerios y acceso" else "Directorio de líderes y colaboradores",
+                        onClick = onPersonnel,
+                    ),
+                ),
             )
         }
-        item { MoreOption(Icons.Outlined.PrivacyTip, "Privacidad y datos", "Políticas, licencias y eliminación de tu cuenta", onClick = onPrivacy) }
-        item { MoreOption(Icons.AutoMirrored.Outlined.Logout, "Cerrar sesión", "Salir de tu cuenta en este dispositivo", tint = Danger, onClick = onLogout) }
+        item {
+            MoreGroup(
+                "Mi cuenta",
+                listOf(
+                    MoreEntry(
+                        Icons.Outlined.NotificationsNone,
+                        "Avisos",
+                        if (unreadNotifications == 0) "No tienes avisos sin leer" else "$unreadNotifications avisos sin leer",
+                        badge = unreadNotifications,
+                        onClick = onNotifications,
+                    ),
+                    MoreEntry(Icons.Outlined.Lock, "Cambiar mi contraseña", "Actualiza la contraseña de tu cuenta", onClick = onChangePassword),
+                    MoreEntry(Icons.Outlined.PrivacyTip, "Privacidad y datos", "Políticas, licencias y eliminación de tu cuenta", onClick = onPrivacy),
+                ),
+            )
+        }
+        item {
+            MoreGroup(
+                null,
+                listOf(
+                    MoreEntry(Icons.AutoMirrored.Outlined.Logout, "Cerrar sesión", "Salir de tu cuenta en este dispositivo", tint = Danger, onClick = onLogout),
+                ),
+            )
+        }
     }
 }
 
+private data class MoreEntry(
+    val icon: ImageVector,
+    val title: String,
+    val subtitle: String,
+    val badge: Int = 0,
+    val tint: Color = BrandLight,
+    val onClick: () -> Unit,
+)
+
+/** Opciones agrupadas bajo un título corto, en una sola tarjeta con separadores. */
 @Composable
-private fun MoreOption(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    badge: Int = 0,
-    tint: Color = BrandLight,
-    onClick: () -> Unit,
-) {
-    AppCard(onClick = onClick, contentPadding = 14.dp) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconBadge(icon, tint = tint, container = if (tint == Danger) DangerSurface else BrandSurface)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall, color = if (tint == Danger) Danger else TextPrimary)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+private fun MoreGroup(title: String?, entries: List<MoreEntry>) {
+    Column {
+        if (title != null) {
+            Text(
+                title,
+                style = MaterialTheme.typography.labelLarge,
+                color = TextSecondary,
+                modifier = Modifier.padding(start = 4.dp, bottom = 6.dp),
+            )
+        }
+        val shape = RoundedCornerShape(16.dp)
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(shape)
+                .background(Color.White)
+                .border(1.dp, CardBorder, shape),
+        ) {
+            entries.forEachIndexed { index, entry ->
+                if (index > 0) HorizontalDivider(color = CardBorder, modifier = Modifier.padding(start = 70.dp))
+                val danger = entry.tint == Danger
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = entry.onClick)
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconBadge(entry.icon, tint = entry.tint, container = if (danger) DangerSurface else BrandSurface)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(entry.title, style = MaterialTheme.typography.titleSmall, color = if (danger) Danger else TextPrimary)
+                        Text(entry.subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                    }
+                    if (entry.badge > 0) {
+                        Badge(containerColor = Danger) { Text(entry.badge.toString()) }
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = TextMuted)
+                }
             }
-            if (badge > 0) {
-                Badge(containerColor = Danger) { Text(badge.toString()) }
-                Spacer(Modifier.width(8.dp))
-            }
-            Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = TextMuted)
         }
     }
 }

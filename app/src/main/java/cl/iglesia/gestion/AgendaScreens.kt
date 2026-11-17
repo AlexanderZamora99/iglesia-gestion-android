@@ -85,6 +85,7 @@ import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Button
 import java.time.temporal.ChronoUnit
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.ui.unit.dp
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -391,7 +392,13 @@ fun ActivityListCard(
     val overdue = item.isTask && item.isOverdue()
     AppCard(onClick = onClick, contentPadding = 14.dp) {
         Row(verticalAlignment = Alignment.Top) {
-            SymbolBadge(item.typeSymbol(ministry), accent, size = 42.dp)
+            if (item.isTask) {
+                // Una tarea no lleva "✓": eso parecía "hecho" aun estando vencida.
+                val tint = if (overdue) Danger else accent
+                IconBadge(Icons.Outlined.Checklist, tint = tint, container = tint.copy(alpha = 0.12f), size = 42.dp)
+            } else {
+                SymbolBadge(item.typeSymbol(ministry), accent, size = 42.dp)
+            }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
@@ -414,11 +421,15 @@ fun ActivityListCard(
                 item.parentActivityTitle?.let {
                     Text("En: $it", style = MaterialTheme.typography.bodySmall, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Pill(item.typeLabel, Brand, BrandSurface)
-                    if (!item.isMeeting) StatusPill(item.status)
-                    if (overdue) Pill("Vencida", Danger, DangerSurface)
+                // Solo lo que aporta: la clase si no es tarea, el estado si no es el de partida y "Vencida".
+                val showStatus = !item.isMeeting && item.status != "pending"
+                if (!item.isTask || showStatus || overdue) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (!item.isTask) Pill(item.typeLabel, Brand, BrandSurface)
+                        if (showStatus) StatusPill(item.status)
+                        if (overdue) Pill("Vencida", Danger, DangerSurface)
+                    }
                 }
             }
         }
