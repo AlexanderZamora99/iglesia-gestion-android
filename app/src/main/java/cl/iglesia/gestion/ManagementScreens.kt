@@ -463,37 +463,42 @@ private fun ProjectCard(
             )
         }
         Spacer(Modifier.height(14.dp))
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-            Text("Avance del proyecto", style = MaterialTheme.typography.labelLarge, color = TextSecondary, modifier = Modifier.weight(1f))
+        if (activities.isEmpty()) {
+            // Sin actividades no hay avance que medir: una barra vacía con "0 %" parecía un proyecto detenido.
             Text(
-                "${project.progress}%",
-                style = MaterialTheme.typography.headlineSmall,
-                color = if (project.progress == 100) Success else Brand,
+                "Sin actividades todavía. El avance aparece al asociar actividades desde la Agenda.",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMuted,
+            )
+        } else {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+                Text("Avance", style = MaterialTheme.typography.labelLarge, color = TextSecondary, modifier = Modifier.weight(1f))
+                Text(
+                    "${project.progress}%",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (project.progress == 100) Success else Brand,
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            LinearProgressIndicator(
+                progress = { project.progress / 100f },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(CircleShape)
+                    .semantics { contentDescription = "Avance del proyecto: ${project.progress} por ciento" },
+                color = if (project.progress == 100) Success else BrandLight,
+                trackColor = MutedSurface,
+                gapSize = 0.dp,
+                drawStopIndicator = {},
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "$completedActivities de ${activities.size} actividad(es) completas",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMuted,
             )
         }
-        Spacer(Modifier.height(6.dp))
-        LinearProgressIndicator(
-            progress = { project.progress / 100f },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(12.dp)
-                .clip(CircleShape)
-                .semantics { contentDescription = "Avance del proyecto: ${project.progress} por ciento" },
-            color = if (project.progress == 100) Success else BrandLight,
-            trackColor = MutedSurface,
-            gapSize = 0.dp,
-            drawStopIndicator = {},
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            if (activities.isEmpty()) {
-                "Sin actividades asociadas todavía: avance 0 %."
-            } else {
-                "$completedActivities de ${activities.size} actividad(es) completas · se actualiza al completar actividades y tareas."
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = TextMuted,
-        )
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Avatar(leader?.initials ?: "?", size = 28.dp)
