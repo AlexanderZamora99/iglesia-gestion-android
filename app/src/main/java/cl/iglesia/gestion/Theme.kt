@@ -59,7 +59,8 @@ private val ChurchTypography = Typography(
     // el texto de un botón azul salía oscuro en vez de blanco. El texto normal toma TextPrimary
     // por onSurface/onBackground del tema.
     bodyLarge = TextStyle(fontSize = 17.sp, lineHeight = 25.sp),
-    bodyMedium = TextStyle(fontSize = 16.sp, lineHeight = 23.sp, color = TextPrimary),
+    // Sin color fijo, igual que bodyLarge: los mensajes (Snackbar) y botones lo heredan del contenedor.
+    bodyMedium = TextStyle(fontSize = 16.sp, lineHeight = 23.sp),
     bodySmall = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, color = TextSecondary),
     labelLarge = TextStyle(fontSize = 15.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold),
     labelMedium = TextStyle(fontSize = 14.sp, lineHeight = 19.sp, fontWeight = FontWeight.Medium),

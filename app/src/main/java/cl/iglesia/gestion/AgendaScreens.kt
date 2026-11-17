@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -86,6 +87,25 @@ import androidx.compose.material3.Button
 import java.time.temporal.ChronoUnit
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.outlined.Checklist
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material3.Surface
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import java.time.YearMonth
 import androidx.compose.ui.unit.dp
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -475,6 +495,7 @@ fun CalendarScreen(
     var selectedDate by rememberSaveable { mutableStateOf(today) }
     var typeFilter by rememberSaveable { mutableStateOf("Todos") }
     var createMenu by remember { mutableStateOf(false) }
+    var showMonth by rememberSaveable { mutableStateOf(false) }
     val weekStart = selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
     val week = (0L..6L).map(weekStart::plusDays)
 
@@ -576,12 +597,21 @@ fun CalendarScreen(
                         IconButton(onClick = { selectedDate = selectedDate.minusWeeks(1) }) {
                             Icon(Icons.Outlined.ChevronLeft, contentDescription = "Semana anterior")
                         }
-                        Text(
-                            weekStart.monthLabel(),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = TextPrimary,
-                            modifier = Modifier.weight(1f),
-                        )
+                        // El mes va centrado y se puede tocar: abre el calendario completo.
+                        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                            Row(
+                                Modifier
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .clickable { showMonth = true }
+                                    .semantics { role = Role.Button; contentDescription = "Abrir el calendario del mes" }
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(selectedDate.monthLabel(), style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                                Spacer(Modifier.width(2.dp))
+                                Icon(Icons.Outlined.ExpandMore, contentDescription = null, tint = TextSecondary)
+                            }
+                        }
                         if (selectedDate != today) {
                             TextButton(onClick = { selectedDate = today }) { Text("Hoy") }
                         }
@@ -589,17 +619,39 @@ fun CalendarScreen(
                             Icon(Icons.Outlined.ChevronRight, contentDescription = "Semana siguiente")
                         }
                     }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        week.forEach { date ->
-                            DayCell(
-                                date = date,
-                                selected = date == selectedDate,
-                                isToday = date == today,
-                                hasItems = date in datesWithItems,
-                                onClick = { selectedDate = date },
-                                modifier = Modifier.weight(1f),
-                            )
+                    AnimatedContent(
+                        targetState = weekStart,
+                        transitionSpec = {
+                            val forward = targetState.isAfter(initialState)
+                            (slideInHorizontally(tween(280)) { if (forward) it / 3 else -it / 3 } + fadeIn(tween(280))) togetherWith
+                                (slideOutHorizontally(tween(200)) { if (forward) -it / 3 else it / 3 } + fadeOut(tween(160)))
+                        },
+                        label = "semana",
+                    ) { start ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            (0L..6L).map(start::plusDays).forEach { date ->
+                                DayCell(
+                                    date = date,
+                                    selected = date == selectedDate,
+                                    isToday = date == today,
+                                    hasItems = date in datesWithItems,
+                                    onClick = { selectedDate = date },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
                         }
+                    }
+                    if (showMonth) {
+                        MonthCalendarDialog(
+                            selected = selectedDate,
+                            today = today,
+                            datesWithItems = datesWithItems,
+                            onSelect = {
+                                selectedDate = it
+                                showMonth = false
+                            },
+                            onDismiss = { showMonth = false },
+                        )
                     }
                 }
             }
@@ -700,13 +752,37 @@ private fun DayCell(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val background = when {
-        selected -> Brand
-        isToday -> BrandSurface
-        else -> Color.White
-    }
+    // Los cambios de color y tamaño se animan: el día elegido "se enciende" en vez de saltar.
+    val background by animateColorAsState(
+        when {
+            selected -> Brand
+            isToday -> BrandSurface
+            else -> Color.White
+        },
+        animationSpec = tween(220),
+        label = "fondo del día",
+    )
+    val letterColor by animateColorAsState(
+        if (selected) Color.White.copy(alpha = 0.85f) else TextSecondary,
+        animationSpec = tween(220),
+        label = "letra del día",
+    )
+    val numberColor by animateColorAsState(
+        if (selected) Color.White else TextPrimary,
+        animationSpec = tween(220),
+        label = "número del día",
+    )
+    val scale by animateFloatAsState(
+        if (selected) 1.06f else 1f,
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = 450f),
+        label = "escala del día",
+    )
     Column(
         modifier = modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
             .clip(RoundedCornerShape(28.dp))
             .background(background)
             .clickable(onClick = onClick)
@@ -721,18 +797,145 @@ private fun DayCell(
         Text(
             date.weekdayInitials(),
             style = MaterialTheme.typography.labelMedium,
-            color = if (selected) Color.White.copy(alpha = 0.85f) else TextSecondary,
+            color = letterColor,
         )
         Spacer(Modifier.height(2.dp))
         Text(
             date.dayOfMonth.toString(),
             style = MaterialTheme.typography.titleMedium,
-            color = if (selected) Color.White else TextPrimary,
+            color = numberColor,
             fontWeight = if (isToday) FontWeight.Bold else FontWeight.SemiBold,
         )
         Spacer(Modifier.height(4.dp))
         Box(
             Modifier.size(6.dp).clip(CircleShape)
+                .background(if (hasItems) (if (selected) Gold else BrandLight) else Color.Transparent),
+        )
+    }
+}
+
+/** Mes completo estilo agenda, con el nombre del mes centrado; tocar un día lo elige. */
+@Composable
+private fun MonthCalendarDialog(
+    selected: LocalDate,
+    today: LocalDate,
+    datesWithItems: Set<LocalDate>,
+    onSelect: (LocalDate) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var month by remember { mutableStateOf(YearMonth.from(selected)) }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = Color.White,
+        ) {
+            Column(Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { month = month.minusMonths(1) }) {
+                        Icon(Icons.Outlined.ChevronLeft, contentDescription = "Mes anterior")
+                    }
+                    Text(
+                        month.atDay(1).monthLabel(),
+                        style = MaterialTheme.typography.titleLarge,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1f).semantics { heading() },
+                    )
+                    IconButton(onClick = { month = month.plusMonths(1) }) {
+                        Icon(Icons.Outlined.ChevronRight, contentDescription = "Mes siguiente")
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth()) {
+                    listOf("L", "M", "X", "J", "V", "S", "D").forEach { initial ->
+                        Text(
+                            initial,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = TextSecondary,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                val offset = month.atDay(1).dayOfWeek.value - 1
+                val daysInMonth = month.lengthOfMonth()
+                val rows = (offset + daysInMonth + 6) / 7
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    for (row in 0 until rows) {
+                        Row(Modifier.fillMaxWidth()) {
+                            for (column in 0 until 7) {
+                                val day = row * 7 + column - offset + 1
+                                if (day in 1..daysInMonth) {
+                                    val date = month.atDay(day)
+                                    MonthDayCell(
+                                        date = date,
+                                        selected = date == selected,
+                                        isToday = date == today,
+                                        hasItems = date in datesWithItems,
+                                        modifier = Modifier.weight(1f),
+                                        onClick = { onSelect(date) },
+                                    )
+                                } else {
+                                    Spacer(Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { onSelect(today) }) { Text("Ir a hoy") }
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = onDismiss) { Text("Cerrar") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MonthDayCell(
+    date: LocalDate,
+    selected: Boolean,
+    isToday: Boolean,
+    hasItems: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val background by animateColorAsState(
+        when {
+            selected -> Brand
+            isToday -> BrandSurface
+            else -> Color.Transparent
+        },
+        animationSpec = tween(180),
+        label = "fondo del día del mes",
+    )
+    Column(
+        modifier = modifier
+            .aspectRatio(1f)
+            .padding(2.dp)
+            .clip(CircleShape)
+            .background(background)
+            .clickable(onClick = onClick)
+            .semantics(mergeDescendants = true) {
+                this.selected = selected
+                contentDescription = date.longLabel() + if (hasItems) ", con actividades" else ""
+            },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            date.dayOfMonth.toString(),
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (selected) Color.White else TextPrimary,
+            fontWeight = if (isToday || selected) FontWeight.Bold else FontWeight.Normal,
+        )
+        Box(
+            Modifier
+                .size(5.dp)
+                .clip(CircleShape)
                 .background(if (hasItems) (if (selected) Gold else BrandLight) else Color.Transparent),
         )
     }
@@ -764,7 +967,6 @@ fun ActivityDetailSheet(
     onOpenFile: (RecordFile) -> Unit = {},
     onAddComment: (String) -> Unit = {},
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val ministry = ministries.find { it.id == item.ministryId }
     val project = projects.find { it.id == item.projectId }
     fun nameOf(id: String?) = members.find { it.id == id }?.name
@@ -779,22 +981,55 @@ fun ActivityDetailSheet(
     // En staging el repertorio no depende del culto: se muestra el vigente.
     val worshipSet = worshipSets.ministryRepertoire()
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = Color.White) {
-        Column(
-            Modifier
+    // Ventana emergente de tamaño fijo: no se cierra al deslizar ni al tocar fuera (solo con la X o Atrás)
+    // y el contenido se desplaza dentro, así todas las fichas ocupan lo mismo aunque tengan menos datos.
+    val overdue = item.isTask && item.isOverdue()
+    val headerColor = if (overdue) Danger else Brand
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(dismissOnClickOutside = false, usePlatformDefaultWidth = false),
+    ) {
+        Surface(
+            modifier = Modifier
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 24.dp)
-                .navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = 16.dp, vertical = 24.dp)
+                .fillMaxHeight(0.88f),
+            shape = RoundedCornerShape(24.dp),
+            color = Color.White,
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Pill(item.typeLabel, Brand, BrandSurface)
-                if (!item.isMeeting) StatusPill(item.status)
-                if (item.isTask && item.isOverdue()) Pill("Vencida", Danger, DangerSurface)
-            }
-            Text(item.title, style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
+            Column(Modifier.fillMaxSize()) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(headerColor)
+                        .padding(start = 20.dp, end = 8.dp, top = 8.dp, bottom = 18.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Pill(item.typeLabel, headerColor, Color.White)
+                            if (!item.isMeeting) StatusPill(item.status)
+                            if (overdue) Pill("Vencida", headerColor, Color.White)
+                        }
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Outlined.Close, contentDescription = "Cerrar", tint = Color.White)
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        item.title,
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
             Column {
                 DetailRow(
                     Icons.Outlined.Schedule,
@@ -805,10 +1040,14 @@ fun ActivityDetailSheet(
                     },
                 )
                 if (item.location.isNotBlank()) DetailRow(Icons.Outlined.Place, item.location)
+                // Una tarea dice a qué actividad pertenece y de qué ministerio es.
+                if (item.isTask) {
+                    item.parentActivityTitle?.let { DetailRow(Icons.Outlined.EventAvailable, "Actividad: $it") }
+                }
                 val classification = when (item.classification) {
                     Classification.Ministry -> "Ministerio: ${ministry?.name ?: "—"}"
                     Classification.Project -> "Proyecto: ${project?.name ?: "—"}"
-                    Classification.Individual -> "Actividad individual"
+                    Classification.Individual -> if (item.isTask) "Sin ministerio (actividad individual)" else "Actividad individual"
                     Classification.General -> if (item.isMeeting) "Reunión general" else "General (toda la iglesia)"
                 }
                 DetailRow(
@@ -820,7 +1059,6 @@ fun ActivityDetailSheet(
                 LabeledValue(if (item.isTask) "Instrucciones" else "Descripción", item.description)
             }
             if (item.isTask) {
-                item.parentActivityTitle?.let { LabeledValue("Actividad", it) }
                 item.priority?.let { LabeledValue("Prioridad", it.toPriorityLabel()) }
             }
             if (isCulto) {
@@ -974,6 +1212,8 @@ fun ActivityDetailSheet(
                     OutlinedButton(onClick = { onOpenItem(parent) }, modifier = Modifier.fillMaxWidth()) {
                         Text("Ver actividad: ${parent.title}", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
+                }
+            }
                 }
             }
         }

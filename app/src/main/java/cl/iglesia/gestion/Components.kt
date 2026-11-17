@@ -842,4 +842,45 @@ fun ConfirmDialog(
     )
 }
 
+/**
+ * Confirmación que obliga a escribir el nombre exacto de lo que se va a afectar. Para acciones que
+ * esconden algo a los demás: un toque por descuido no basta.
+ */
+@Composable
+fun TypedConfirmDialog(
+    title: String,
+    message: String,
+    expected: String,
+    confirmLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var typed by remember { mutableStateOf("") }
+    val matches = typed.trim().equals(expected.trim(), ignoreCase = true)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(message, style = MaterialTheme.typography.bodyMedium)
+                Text("Para confirmar, escribe \"$expected\":", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                OutlinedTextField(
+                    value = typed,
+                    onValueChange = { typed = it },
+                    singleLine = true,
+                    label = { Text("Nombre") },
+                    isError = typed.isNotEmpty() && !matches,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = matches) {
+                Text(confirmLabel, color = if (matches) Danger else TextMuted)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+    )
+}
+
 val ScreenPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp)

@@ -304,11 +304,11 @@ private fun MinistryDetail(
     }
 
     if (confirmDeactivate) {
-        ConfirmDialog(
+        TypedConfirmDialog(
             title = "¿Desactivar ${ministry.name}?",
             message = "Dejará de aparecer para los usuarios. Sus integrantes y registros se conservan y podrás reactivarlo cuando quieras desde la lista de ministerios.",
+            expected = ministry.name,
             confirmLabel = "Desactivar",
-            destructive = true,
             onDismiss = { confirmDeactivate = false },
             onConfirm = {
                 confirmDeactivate = false
