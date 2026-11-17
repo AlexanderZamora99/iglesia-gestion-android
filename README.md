@@ -259,8 +259,8 @@ Reglas del proyecto:
 - **Usuarios (Pastor):** crear cuentas, roles, ministerios, activar o desactivar
   y restablecer contraseñas. Al crear una cuenta se muestran el correo y la
   contraseña temporal para entregarlos en persona. Cada usuario puede cambiar la suya.
-- **Accesibilidad:** letra ampliada (texto principal de 18 sp) y botones grandes,
-  pensados para personas mayores.
+- **Accesibilidad:** tipografía jerarquizada que respeta el tamaño de texto del
+  sistema y controles táctiles amplios, pensados para personas mayores.
 - **Avisos** dentro de la app para asignaciones, cambios de agenda, repertorios,
   reuniones y proyectos.
 

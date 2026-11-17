@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Assignment
@@ -64,14 +65,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -87,6 +95,7 @@ fun HomeScreen(
     notifications: List<ChurchNotification>,
     onOpenItem: (ChurchActivity) -> Unit,
     onOpenAgenda: (personal: Boolean) -> Unit,
+    onOpenMyAgenda: () -> Unit,
     onOpenNotifications: () -> Unit,
 ) {
     val today = LocalDate.now()
@@ -95,7 +104,9 @@ fun HomeScreen(
     val pending = mine
         .filter { !it.isDone && (!it.date.isBefore(today) || it.isTask) }
         .sortedWith(compareBy(ChurchActivity::date, ChurchActivity::time))
-    val pendingTasks = pending.count { it.isTask }
+    val overdueTasks = pending.count { it.isTask && it.isOverdue() }
+    val pendingTasks = pending.count { it.isTask } - overdueTasks
+    val upcomingPending = pending.filterNot { it.isTask && it.isOverdue() }
     val thisWeek = mine.count { !it.isDone && !it.date.isBefore(today) && it.date.isBefore(today.plusDays(7)) }
     val unread = notifications.filter { !it.read }
     val upcomingChurch = activities
@@ -119,29 +130,44 @@ fun HomeScreen(
             )
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                SummaryTile("Tareas pendientes", pendingTasks, Icons.Outlined.TaskAlt, Modifier.weight(1f)) { onOpenAgenda(true) }
-                SummaryTile("Próximos 7 días", thisWeek, Icons.Outlined.CalendarMonth, Modifier.weight(1f)) { onOpenAgenda(true) }
-                SummaryTile("Avisos sin leer", unread.size, Icons.Outlined.NotificationsNone, Modifier.weight(1f), onOpenNotifications)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SummaryTile("Vencidas", overdueTasks, Icons.Outlined.TaskAlt, Modifier.weight(1f)) { onOpenAgenda(true) }
+                    SummaryTile("Tareas pendientes", pendingTasks, Icons.Outlined.TaskAlt, Modifier.weight(1f)) { onOpenAgenda(true) }
+                }
             }
         }
-        item { SectionHeader("Mis pendientes", actionLabel = "Ver agenda", onAction = { onOpenAgenda(true) }) }
-        if (pending.isEmpty()) {
+        item { WeekOverviewCard(thisWeek, unread.size, onOpenMyAgenda, onOpenNotifications) }
+        if (overdueTasks > 0) {
+            item { SectionHeader("Tareas vencidas", actionLabel = "Ver agenda", onAction = { onOpenAgenda(true) }) }
+            items(pending.filter { it.isTask && it.isOverdue() }.take(6), key = { "overdue-" + it.id }) { item ->
+                ActivityListCard(item, ministries, onClick = { onOpenItem(item) }, showDate = true)
+            }
+            if (overdueTasks > 6) {
+                item {
+                    TextButton(onClick = { onOpenAgenda(true) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Ver ${overdueTasks - 6} tareas vencidas más")
+                    }
+                }
+            }
+        }
+        item { SectionHeader("Próximos pendientes", actionLabel = "Ver agenda", onAction = { onOpenAgenda(true) }) }
+        if (upcomingPending.isEmpty()) {
             item {
                 EmptyState(
-                    "Estás al día",
-                    "No tienes tareas ni actividades pendientes con fecha.",
+                    if (overdueTasks > 0) "No tienes otros pendientes próximos" else "Estás al día",
+                    if (overdueTasks > 0) "Las tareas vencidas aparecen en la sección anterior." else "No tienes tareas ni actividades pendientes con fecha.",
                     Icons.Outlined.EventAvailable,
                 )
             }
         } else {
-            items(pending.take(6), key = { "p-" + it.kind.name + it.id }) { item ->
+            items(upcomingPending.take(6), key = { "p-" + it.kind.name + it.id }) { item ->
                 ActivityListCard(item, ministries, onClick = { onOpenItem(item) }, showDate = true)
             }
-            if (pending.size > 6) {
+            if (upcomingPending.size > 6) {
                 item {
                     TextButton(onClick = { onOpenAgenda(true) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Ver ${pending.size - 6} pendientes más")
+                        Text("Ver ${upcomingPending.size - 6} pendientes más")
                     }
                 }
             }
@@ -168,6 +194,86 @@ fun HomeScreen(
 }
 
 @Composable
+private fun WeekOverviewCard(
+    activityCount: Int,
+    unreadCount: Int,
+    onOpenMyAgenda: () -> Unit,
+    onOpenNotifications: () -> Unit,
+) {
+    val shape = RoundedCornerShape(26.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Brush.linearGradient(listOf(Brand, BrandLight)))
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "ESTA SEMANA",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.78f),
+                )
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    activityCount.toString(),
+                    style = MaterialTheme.typography.displaySmall,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    if (activityCount == 1) "actividad próxima" else "actividades próximas",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.9f),
+                )
+            }
+            Box(
+                Modifier.size(60.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.16f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = Color.White, modifier = Modifier.size(30.dp))
+            }
+        }
+        val largeText = LocalDensity.current.fontScale >= 1.25f
+        if (largeText) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                OverviewAction("Abrir agenda", Icons.Outlined.CalendarMonth, Modifier.fillMaxWidth()) { onOpenMyAgenda() }
+                OverviewAction("Avisos · $unreadCount", Icons.Outlined.NotificationsNone, Modifier.fillMaxWidth(), onOpenNotifications)
+            }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OverviewAction("Abrir agenda", Icons.Outlined.CalendarMonth) { onOpenMyAgenda() }
+                OverviewAction("Avisos · $unreadCount", Icons.Outlined.NotificationsNone, onClick = onOpenNotifications)
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverviewAction(
+    label: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color.White.copy(alpha = 0.16f))
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = label; role = Role.Button }
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+        Text(label, color = Color.White, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
 private fun SummaryTile(
     label: String,
     value: Int,
@@ -180,11 +286,44 @@ private fun SummaryTile(
         onClick = onClick,
         contentPadding = 12.dp,
     ) {
-        Icon(icon, contentDescription = null, tint = BrandLight, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.height(8.dp))
-        Text(value.toString(), style = MaterialTheme.typography.headlineSmall, color = Brand)
-        Text(label, style = MaterialTheme.typography.bodySmall, color = TextSecondary, minLines = 2)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconBadge(icon, size = 36.dp)
+            Spacer(Modifier.width(10.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(value.toString(), style = MaterialTheme.typography.titleMedium, color = Brand)
+                Text(
+                    label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
+}
+
+/**
+ * Trabajo propio sin terminar desde hoy, más las tareas vencidas. Inicio y la vista
+ * "Pendientes" de la Agenda usan esta misma regla para que sus números coincidan.
+ */
+fun pendingFor(member: Member, activities: List<ChurchActivity>, today: LocalDate = LocalDate.now()): List<ChurchActivity> =
+    activities
+        .filter { it.involves(member.id) && !it.isDone && (!it.date.isBefore(today) || it.isTask) }
+        .sortedWith(compareBy(ChurchActivity::date, ChurchActivity::time))
+
+private enum class PendingGroup(val title: String) {
+    Overdue("Vencidas"),
+    Today("Hoy"),
+    Soon("Próximos días"),
+    Later("Más adelante"),
+}
+
+private fun ChurchActivity.pendingGroup(today: LocalDate): PendingGroup = when {
+    date.isBefore(today) -> PendingGroup.Overdue
+    date == today -> PendingGroup.Today
+    date.isBefore(today.plusDays(7)) -> PendingGroup.Soon
+    else -> PendingGroup.Later
 }
 
 // Tarjeta de elemento de agenda --------------------------------------------------
@@ -216,9 +355,11 @@ fun ActivityListCard(
                     if (showDate) append(item.date.relativeLabel()).append(" · ")
                     append(item.time)
                     if (!item.isTask && item.endTime.isNotBlank()) append("–").append(item.endTime)
-                    if (item.location.isNotBlank()) append(" · ").append(item.location)
                 }
-                Text(whenText, style = MaterialTheme.typography.bodySmall, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(whenText, style = MaterialTheme.typography.bodySmall, color = TextSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (item.location.isNotBlank()) {
+                    Text(item.location, style = MaterialTheme.typography.bodySmall, color = TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
                 item.parentActivityTitle?.let {
                     Text("En: $it", style = MaterialTheme.typography.bodySmall, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
@@ -256,10 +397,19 @@ fun CalendarScreen(
     ministries: List<Ministry>,
     personal: Boolean,
     onPersonalChange: (Boolean) -> Unit,
+    pendingView: Boolean,
+    onPendingViewChange: (Boolean) -> Unit,
     onOpenItem: (ChurchActivity) -> Unit,
     onCreate: (FormRequest) -> Unit,
 ) {
     val today = LocalDate.now()
+    // La lista de pendientes solo existe en la agenda personal.
+    val showingPending = personal && pendingView
+    val pendingGroups = if (showingPending) {
+        pendingFor(member, activities, today).groupBy { it.pendingGroup(today) }
+    } else {
+        emptyMap()
+    }
     var selectedDate by rememberSaveable { mutableStateOf(today) }
     var typeFilter by rememberSaveable { mutableStateOf("Todos") }
     var createMenu by remember { mutableStateOf(false) }
@@ -274,8 +424,21 @@ fun CalendarScreen(
     val dayItems = visible.filter { it.date == selectedDate }.sortedBy(ChurchActivity::time)
 
     Box(Modifier.fillMaxSize()) {
+        // Deslizar a los lados cambia de semana (solo en la vista por día; las flechas siguen igual).
+        val swipeWeeks = Modifier.pointerInput(showingPending) {
+            if (showingPending) return@pointerInput
+            var total = 0f
+            detectHorizontalDragGestures(
+                onDragStart = { total = 0f },
+                onHorizontalDrag = { _, delta -> total += delta },
+                onDragEnd = {
+                    if (total <= -140f) selectedDate = selectedDate.plusWeeks(1)
+                    else if (total >= 140f) selectedDate = selectedDate.minusWeeks(1)
+                },
+            )
+        }
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().then(swipeWeeks),
             contentPadding = PaddingValues(top = 16.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -284,21 +447,67 @@ fun CalendarScreen(
                     ScreenHeader(
                         "Calendario",
                         "Agenda",
-                        if (personal) "Lo que tienes asignado o donde participas." else "Toda la actividad visible para ti.",
+                        when {
+                            showingPending -> "Lo que te falta por hacer, empezando por lo vencido."
+                            personal -> "Lo que tienes asignado o donde participas."
+                            else -> "Toda la actividad visible para ti."
+                        },
                     )
                     Spacer(Modifier.height(12.dp))
+                    // Un solo selector en lugar de dos apilados: General, Mi agenda (por día) o Pendientes.
+                    val modes = listOf("General", "Mi agenda", "Pendientes")
+                    val selectedMode = when {
+                        !personal -> 0
+                        pendingView -> 2
+                        else -> 1
+                    }
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        listOf(false to "General", true to "Personal").forEachIndexed { index, (value, label) ->
+                        modes.forEachIndexed { index, label ->
                             SegmentedButton(
-                                selected = personal == value,
-                                onClick = { onPersonalChange(value) },
-                                shape = SegmentedButtonDefaults.itemShape(index, 2),
+                                selected = selectedMode == index,
+                                onClick = {
+                                    onPersonalChange(index != 0)
+                                    if (index != 0) onPendingViewChange(index == 2)
+                                },
+                                shape = SegmentedButtonDefaults.itemShape(index, modes.size),
                                 colors = SegmentedButtonDefaults.colors(activeContainerColor = BrandContainer, activeContentColor = Brand),
-                            ) { Text(label) }
+                            ) { Text(label, maxLines = 1) }
                         }
                     }
                 }
             }
+            if (showingPending) {
+                if (pendingGroups.isEmpty()) {
+                    item {
+                        EmptyState(
+                            "Estás al día",
+                            "No tienes tareas ni actividades pendientes.",
+                            Icons.Outlined.EventAvailable,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        )
+                    }
+                }
+                PendingGroup.entries.forEach { group ->
+                    val groupItems = pendingGroups[group].orEmpty()
+                    if (groupItems.isNotEmpty()) {
+                        item(key = "g-" + group.name) {
+                            Text(
+                                "${group.title} (${groupItems.size})",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = if (group == PendingGroup.Overdue) Danger else TextPrimary,
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp)
+                                    .semantics { heading() },
+                            )
+                        }
+                        items(groupItems, key = { "pg-" + it.kind.name + it.id }) { item ->
+                            Box(Modifier.padding(horizontal = 16.dp)) {
+                                ActivityListCard(item, ministries, onClick = { onOpenItem(item) }, showDate = true)
+                            }
+                        }
+                    }
+                }
+            } else {
             item {
                 Column(Modifier.padding(horizontal = 12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -362,7 +571,11 @@ fun CalendarScreen(
                 item {
                     EmptyState(
                         "Sin elementos este día",
-                        if (personal) "No tienes asignaciones para esta fecha." else "Elige otra fecha o cambia el filtro.",
+                        when {
+                            personal -> "No tienes asignaciones para esta fecha. Prueba otro día o cambia a la agenda general."
+                            typeFilter != "Todos" -> "No hay elementos de tipo «$typeFilter» para esta fecha. Prueba otro filtro o día."
+                            else -> "No hay actividades visibles para esta fecha. Prueba otro día o revisa la agenda personal."
+                        },
                         modifier = Modifier.padding(horizontal = 16.dp),
                     )
                 }
@@ -372,6 +585,7 @@ fun CalendarScreen(
                         ActivityListCard(item, ministries, onClick = { onOpenItem(item) })
                     }
                 }
+            }
             }
         }
 
@@ -431,7 +645,7 @@ private fun DayCell(
     }
     Column(
         modifier = modifier
-            .clip(MaterialTheme.shapes.medium)
+            .clip(RoundedCornerShape(28.dp))
             .background(background)
             .clickable(onClick = onClick)
             .semantics(mergeDescendants = true) {
@@ -597,9 +811,7 @@ fun ActivityDetailSheet(
                 }
                 item.taskComments.forEach { comment ->
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        val whenLabel = comment.createdAt
-                            ?.atZoneSameInstant(java.time.ZoneId.systemDefault())
-                            ?.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"))
+                        val whenLabel = comment.createdAt?.dateTimeLabel()
                         Text(
                             listOfNotNull(nameOf(comment.authorId) ?: "Alguien", whenLabel).joinToString(" · "),
                             style = MaterialTheme.typography.labelSmall,
