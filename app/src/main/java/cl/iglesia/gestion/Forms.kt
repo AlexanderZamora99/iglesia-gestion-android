@@ -884,6 +884,8 @@ fun AddMemberForm(
 ) {
     var memberId by remember { mutableStateOf<String?>(null) }
     var leader by remember { mutableStateOf(false) }
+    // Solo quien tiene el rol "Líder de ministerio" puede ser líder: para el resto la opción no se muestra.
+    val canLead = candidates.find { it.id == memberId }?.role == Roles.MINISTRY_LEADER
     FullScreenForm(
         title = "Agregar a ${ministry.shortName}",
         confirmLabel = "Agregar integrante",
@@ -891,7 +893,7 @@ fun AddMemberForm(
         submitting = submitting,
         error = error,
         onDismiss = onDismiss,
-        onConfirm = { memberId?.let { onSubmit(it, leader) } },
+        onConfirm = { memberId?.let { onSubmit(it, leader && canLead) } },
     ) {
         FieldLabel("Persona", required = true)
         MemberPicker(
@@ -901,12 +903,14 @@ fun AddMemberForm(
             onChange = { memberId = it.firstOrNull() },
             emptyMessage = "Todas las personas activas ya pertenecen a este ministerio.",
         )
-        SwitchRow(
-            label = "Líder del ministerio",
-            checked = leader,
-            onCheckedChange = { leader = it },
-            supporting = "Podrá crear actividades y asignar tareas si su rol es Líder de ministerio.",
-        )
+        if (canLead) {
+            SwitchRow(
+                label = "Líder del ministerio",
+                checked = leader,
+                onCheckedChange = { leader = it },
+                supporting = "Podrá crear actividades y asignar tareas en este ministerio.",
+            )
+        }
     }
 }
 
