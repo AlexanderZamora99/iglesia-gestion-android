@@ -80,6 +80,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material3.Button
+import java.time.temporal.ChronoUnit
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -104,7 +109,10 @@ fun HomeScreen(
     val pending = mine
         .filter { !it.isDone && (!it.date.isBefore(today) || it.isTask) }
         .sortedWith(compareBy(ChurchActivity::date, ChurchActivity::time))
-    val overdueTasks = pending.count { it.isTask && it.isOverdue() }
+    val overdueItems = pending.filter { it.isTask && it.isOverdue() }
+    val overdueTasks = overdueItems.size
+    // `pending` va de la fecha más antigua a la más nueva: la primera vencida es la más antigua.
+    val oldestOverdueDays = overdueItems.firstOrNull()?.let { ChronoUnit.DAYS.between(it.date, today).toInt() } ?: 0
     val pendingTasks = pending.count { it.isTask } - overdueTasks
     val upcomingPending = pending.filterNot { it.isTask && it.isOverdue() }
     val thisWeek = mine.count { !it.isDone && !it.date.isBefore(today) && it.date.isBefore(today.plusDays(7)) }
@@ -120,33 +128,39 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            ScreenHeader(
-                eyebrow = today.longLabel(),
-                title = "Hola, ${member.firstName}",
-                subtitle = buildString {
-                    append(member.role)
-                    if (myMinistries.isNotEmpty()) append(" · ").append(myMinistries.joinToString { it.shortName })
-                },
-            )
+            Column {
+                Text(
+                    "Hola, ${member.firstName}",
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.semantics { heading() },
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    buildString {
+                        append(today.shortLabel())
+                        append(" · ").append(member.role)
+                        if (myMinistries.isNotEmpty()) append(" · ").append(myMinistries.joinToString { it.shortName })
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                )
+            }
         }
+        item { AttentionCard(overdueTasks, oldestOverdueDays) { onOpenAgenda(true) } }
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SummaryTile("Vencidas", overdueTasks, Icons.Outlined.TaskAlt, Modifier.weight(1f)) { onOpenAgenda(true) }
-                    SummaryTile("Tareas pendientes", pendingTasks, Icons.Outlined.TaskAlt, Modifier.weight(1f)) { onOpenAgenda(true) }
-                }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StatTile("pendientes", pendingTasks, Modifier.weight(1f)) { onOpenAgenda(true) }
+                StatTile("esta semana", thisWeek, Modifier.weight(1f)) { onOpenMyAgenda() }
+                StatTile("avisos", unread.size, Modifier.weight(1f), onOpenNotifications)
             }
         }
-        item { WeekOverviewCard(thisWeek, unread.size, onOpenMyAgenda, onOpenNotifications) }
         if (overdueTasks > 0) {
-            item { SectionHeader("Tareas vencidas", actionLabel = "Ver agenda", onAction = { onOpenAgenda(true) }) }
-            items(pending.filter { it.isTask && it.isOverdue() }.take(6), key = { "overdue-" + it.id }) { item ->
-                ActivityListCard(item, ministries, onClick = { onOpenItem(item) }, showDate = true)
-            }
-            if (overdueTasks > 6) {
+            item { SectionHeader("Más antiguas", actionLabel = "Ver todas", onAction = { onOpenAgenda(true) }) }
+            item { OverdueList(overdueItems.take(OVERDUE_PREVIEW), today, onOpenItem) }
+            if (overdueTasks > OVERDUE_PREVIEW) {
                 item {
                     TextButton(onClick = { onOpenAgenda(true) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Ver ${overdueTasks - 6} tareas vencidas más")
+                        Text("Ver ${overdueTasks - OVERDUE_PREVIEW} vencidas más")
                     }
                 }
             }
@@ -193,91 +207,76 @@ fun HomeScreen(
     }
 }
 
+private const val OVERDUE_PREVIEW = 4
+
+/** Lo urgente primero: las tareas vencidas, con una sola acción clara. */
 @Composable
-private fun WeekOverviewCard(
-    activityCount: Int,
-    unreadCount: Int,
-    onOpenMyAgenda: () -> Unit,
-    onOpenNotifications: () -> Unit,
-) {
-    val shape = RoundedCornerShape(26.dp)
+private fun AttentionCard(overdue: Int, oldestDays: Int, onReview: () -> Unit) {
+    if (overdue == 0) {
+        AppCard(containerColor = SuccessSurface) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.TaskAlt, contentDescription = null, tint = Success, modifier = Modifier.size(28.dp))
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text("Sin tareas vencidas", style = MaterialTheme.typography.titleSmall)
+                    Text("Nada se te ha pasado de fecha.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                }
+            }
+        }
+        return
+    }
+    val shape = RoundedCornerShape(20.dp)
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Brush.linearGradient(listOf(Brand, BrandLight)))
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .background(DangerSurface)
+            .border(1.dp, Danger.copy(alpha = 0.25f), shape)
+            .padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    "ESTA SEMANA",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.78f),
-                )
-                Spacer(Modifier.height(5.dp))
-                Text(
-                    activityCount.toString(),
-                    style = MaterialTheme.typography.displaySmall,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    if (activityCount == 1) "actividad próxima" else "actividades próximas",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.9f),
-                )
-            }
-            Box(
-                Modifier.size(60.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.16f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = Color.White, modifier = Modifier.size(30.dp))
-            }
+            Icon(Icons.Outlined.WarningAmber, contentDescription = null, tint = Danger, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("Requiere atención", style = MaterialTheme.typography.labelMedium, color = Danger)
         }
-        val largeText = LocalDensity.current.fontScale >= 1.25f
-        if (largeText) {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                OverviewAction("Abrir agenda", Icons.Outlined.CalendarMonth, Modifier.fillMaxWidth()) { onOpenMyAgenda() }
-                OverviewAction("Avisos · $unreadCount", Icons.Outlined.NotificationsNone, Modifier.fillMaxWidth(), onOpenNotifications)
-            }
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OverviewAction("Abrir agenda", Icons.Outlined.CalendarMonth) { onOpenMyAgenda() }
-                OverviewAction("Avisos · $unreadCount", Icons.Outlined.NotificationsNone, onClick = onOpenNotifications)
-            }
+        Spacer(Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                overdue.toString(),
+                fontSize = 40.sp,
+                lineHeight = 44.sp,
+                fontWeight = FontWeight.Bold,
+                color = Danger,
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                if (overdue == 1) "tarea vencida" else "tareas vencidas",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Danger,
+                modifier = Modifier.padding(bottom = 6.dp),
+            )
+        }
+        Text(
+            "La más antigua lleva $oldestDays ${if (oldestDays == 1) "día" else "días"}.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Danger,
+        )
+        Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = onReview,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+            shape = RoundedCornerShape(14.dp),
+        ) {
+            Text("Revisar vencidas")
         }
     }
 }
 
+/** Cifra neutra y pequeña: el color se reserva para lo urgente y para las acciones. */
 @Composable
-private fun OverviewAction(
-    label: String,
-    icon: ImageVector,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = modifier
-            .clip(RoundedCornerShape(24.dp))
-            .background(Color.White.copy(alpha = 0.16f))
-            .clickable(onClick = onClick)
-            .semantics { contentDescription = label; role = Role.Button }
-            .padding(horizontal = 12.dp, vertical = 9.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-        Text(label, color = Color.White, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
-}
-
-@Composable
-private fun SummaryTile(
+private fun StatTile(
     label: String,
     value: Int,
-    icon: ImageVector,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
@@ -286,18 +285,70 @@ private fun SummaryTile(
         onClick = onClick,
         contentPadding = 12.dp,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconBadge(icon, size = 36.dp)
-            Spacer(Modifier.width(10.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                Text(value.toString(), style = MaterialTheme.typography.titleMedium, color = Brand)
-                Text(
-                    label,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
+        Text(value.toString(), style = MaterialTheme.typography.titleLarge)
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = TextSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** Filas con una barra roja a la izquierda en vez de tarjetas con tres chips cada una. */
+@Composable
+private fun OverdueList(items: List<ChurchActivity>, today: LocalDate, onOpen: (ChurchActivity) -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Color.White)
+            .border(1.dp, CardBorder, shape),
+    ) {
+        items.forEachIndexed { index, item ->
+            if (index > 0) HorizontalDivider(color = CardBorder)
+            val days = ChronoUnit.DAYS.between(item.date, today).toInt()
+            val parent = item.parentActivityTitle?.takeIf { it.isNotBlank() }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpen(item) }
+                    .padding(horizontal = 14.dp, vertical = 12.dp)
+                    .semantics(mergeDescendants = true) {},
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.width(4.dp).height(38.dp).clip(RoundedCornerShape(2.dp)).background(Danger))
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        item.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Row {
+                        Text(
+                            "hace $days ${if (days == 1) "día" else "días"}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Danger,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        if (parent != null) {
+                            Text(
+                                " · $parent",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false),
+                            )
+                        }
+                    }
+                }
+                Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = TextSecondary)
             }
         }
     }
