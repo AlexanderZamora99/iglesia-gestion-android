@@ -55,7 +55,10 @@ private val ChurchTypography = Typography(
     titleLarge = TextStyle(fontSize = 21.sp, lineHeight = 27.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary),
     titleMedium = TextStyle(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary),
     titleSmall = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary),
-    bodyLarge = TextStyle(fontSize = 17.sp, lineHeight = 25.sp, color = TextPrimary),
+    // Sin color fijo: es el estilo base de todo el texto y los botones lo heredan. Con color propio,
+    // el texto de un botón azul salía oscuro en vez de blanco. El texto normal toma TextPrimary
+    // por onSurface/onBackground del tema.
+    bodyLarge = TextStyle(fontSize = 17.sp, lineHeight = 25.sp),
     bodyMedium = TextStyle(fontSize = 16.sp, lineHeight = 23.sp, color = TextPrimary),
     bodySmall = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, color = TextSecondary),
     labelLarge = TextStyle(fontSize = 15.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold),

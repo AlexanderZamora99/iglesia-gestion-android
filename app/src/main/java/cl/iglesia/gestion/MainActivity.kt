@@ -117,87 +117,52 @@ private fun TabNavigationDestination(
     tab: AppTab,
     selected: Boolean,
     unread: Int,
-    singleRowMode: Boolean,
     modifier: Modifier = Modifier,
     onSelect: () -> Unit,
 ) {
-    val iconColor by animateColorAsState(
-        targetValue = if (selected) Brand else Color.White.copy(alpha = 0.68f),
-        label = "tab icon color",
-    )
-    val labelColor by animateColorAsState(
-        targetValue = when {
-            singleRowMode && selected -> Brand
-            selected -> Color.White
-            else -> Color.White.copy(alpha = 0.68f)
-        },
-        label = "tab label color",
+    val color by animateColorAsState(
+        targetValue = if (selected) Brand else TextSecondary,
+        label = "tab color",
     )
     val indicatorColor by animateColorAsState(
-        targetValue = if (selected) Color.White else Color.Transparent,
+        targetValue = if (selected) BrandContainer else Color.Transparent,
         label = "tab selection indicator",
     )
-    val baseModifier = modifier
-        .clip(RoundedCornerShape(28.dp))
-        .clickable(onClick = onSelect)
-        .semantics {
-            contentDescription = tab.label
-            role = Role.Tab
-            this.selected = selected
-        }
-
-    if (singleRowMode && selected) {
-        Row(
-            modifier = baseModifier
-                .padding(vertical = 3.dp)
-                .background(indicatorColor, RoundedCornerShape(28.dp))
-                .padding(horizontal = 10.dp, vertical = 9.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            TabIcon(tab, unread, iconColor)
-            Spacer(Modifier.width(7.dp))
-            Text(
-                tab.label,
-                color = labelColor,
-                maxLines = 1,
-                softWrap = false,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    fontSize = 12.sp,
-                ),
-            )
-        }
-    } else {
-        Column(
-            modifier = baseModifier.padding(vertical = 3.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(width = 52.dp, height = 34.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(if (selected) indicatorColor else Color.Transparent),
-                contentAlignment = Alignment.Center,
-            ) {
-                TabIcon(tab, unread, iconColor)
+    // Siempre con nombre visible: un ícono solo no dice a dónde lleva.
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onSelect)
+            .semantics {
+                contentDescription = tab.label
+                role = Role.Tab
+                this.selected = selected
             }
-            if (!singleRowMode) {
-                Text(
-                    tab.label,
-                    color = labelColor,
-                    maxLines = 2,
-                    softWrap = true,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Medium,
-                        fontSize = 12.sp,
-                    ),
-                )
-            }
+            .padding(vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(width = 56.dp, height = 32.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(indicatorColor),
+            contentAlignment = Alignment.Center,
+        ) {
+            TabIcon(tab, unread, color)
         }
+        Spacer(Modifier.height(2.dp))
+        Text(
+            tab.label,
+            color = color,
+            maxLines = 1,
+            softWrap = false,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.wrapContentWidth(unbounded = true),
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Medium,
+                fontSize = 12.sp,
+            ),
+        )
     }
 }
 
@@ -588,20 +553,17 @@ private fun ChurchApp() {
                     )
                 },
                 bottomBar = {
-                    Surface(color = AppBackground) {
-                        val navigationModifier = Modifier
-                            .fillMaxWidth()
-                            .windowInsetsPadding(WindowInsets.navigationBars)
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                        Surface(
-                            modifier = navigationModifier,
-                            color = TextPrimary,
-                            shape = RoundedCornerShape(36.dp),
-                            shadowElevation = 8.dp,
-                        ) {
+                    Surface(color = Color.White, shadowElevation = 6.dp) {
+                        Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars)) {
+                            HorizontalDivider(color = CardBorder)
+                            val selectTab: (AppTab) -> Unit = { tab ->
+                                if (tab == AppTab.More) morePage = MorePage.Menu
+                                currentTab = tab
+                            }
                             if (compactNavigation) {
+                                // Con letra grande no caben cinco pestañas en una fila: se usan dos.
                                 Column(
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 5.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
                                     verticalArrangement = Arrangement.spacedBy(2.dp),
                                 ) {
                                     Row(Modifier.fillMaxWidth()) {
@@ -610,12 +572,8 @@ private fun ChurchApp() {
                                                 tab = tab,
                                                 selected = currentTab == tab,
                                                 unread = unread,
-                                                singleRowMode = false,
                                                 modifier = Modifier.weight(1f),
-                                                onSelect = {
-                                                    if (tab == AppTab.More) morePage = MorePage.Menu
-                                                    currentTab = tab
-                                                },
+                                                onSelect = { selectTab(tab) },
                                             )
                                         }
                                     }
@@ -625,30 +583,21 @@ private fun ChurchApp() {
                                                 tab = tab,
                                                 selected = currentTab == tab,
                                                 unread = unread,
-                                                singleRowMode = false,
                                                 modifier = Modifier.weight(1f).widthIn(max = 160.dp),
-                                                onSelect = {
-                                                    if (tab == AppTab.More) morePage = MorePage.Menu
-                                                    currentTab = tab
-                                                },
+                                                onSelect = { selectTab(tab) },
                                             )
                                         }
                                     }
                                 }
                             } else {
-                                Row(Modifier.fillMaxWidth().padding(4.dp)) {
+                                Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp)) {
                                     AppTab.entries.forEach { tab ->
-                                        val selected = currentTab == tab
                                         TabNavigationDestination(
                                             tab = tab,
-                                            selected = selected,
+                                            selected = currentTab == tab,
                                             unread = unread,
-                                            singleRowMode = true,
-                                            modifier = Modifier.weight(if (selected) 2.2f else 1f),
-                                            onSelect = {
-                                                if (tab == AppTab.More) morePage = MorePage.Menu
-                                                currentTab = tab
-                                            },
+                                            modifier = Modifier.weight(1f),
+                                            onSelect = { selectTab(tab) },
                                         )
                                     }
                                 }
@@ -1210,10 +1159,8 @@ private fun ChurchTopBar(member: Member, unread: Int, onNotifications: () -> Uni
                     contentAlignment = Alignment.Center,
                 ) { Text("✝", color = Gold, fontSize = 20.sp) }
                 Spacer(Modifier.width(10.dp))
-                Column {
-                    Text("Centro Mundial", color = Color.White, style = MaterialTheme.typography.titleSmall, maxLines = 1)
-                    Text("Adoración y Alabanza", color = Color.White.copy(alpha = 0.78f), style = MaterialTheme.typography.bodySmall, maxLines = 1)
-                }
+                // Una sola línea: el nombre completo aparece en Privacidad y en el inicio de sesión.
+                Text("Centro Mundial", color = Color.White, style = MaterialTheme.typography.titleMedium, maxLines = 1)
             }
         },
         actions = {

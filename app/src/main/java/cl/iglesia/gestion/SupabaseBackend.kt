@@ -61,7 +61,7 @@ object SupabaseBackend {
     suspend fun loadCurrentMember(): Member {
         val user = client.auth.retrieveUserForCurrentSession()
         val row = client.from("usuario")
-            .select {
+            .select(DataColumns.USUARIO) {
                 filter {
                     eq("id", user.id)
                 }
@@ -72,7 +72,7 @@ object SupabaseBackend {
         StagingAccounts.accessProblem(row.estado)?.let { throw UserFacingException(it) }
 
         val memberships = client.from("miembro_ministerio")
-            .select {
+            .select(DataColumns.MIEMBRO_MINISTERIO) {
                 filter {
                     eq("usuario_id", user.id)
                 }
@@ -98,16 +98,32 @@ object SupabaseBackend {
         )
     }
 
+    /**
+     * Como la web, que carga cada pantalla por separado: si una seccion secundaria falla (por
+     * ejemplo por un permiso que falta en la base), se registra y queda vacia, pero el resto de
+     * la app sigue funcionando. Los datos base (personas, ministerios, actividades) no pasan por
+     * aqui: si fallan, la carga completa falla y se muestra el error.
+     */
+    private suspend fun <T> optionalSection(name: String, fallback: T, block: suspend () -> T): T =
+        try {
+            block()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            logFailure("SupabaseBackend", "Seccion \"$name\" no disponible", error)
+            fallback
+        }
+
     suspend fun loadChurchSnapshot(currentMember: Member): ChurchSnapshot {
         val ministryRows = client.from("ministerio")
-            .select { order("nombre", Order.ASCENDING) }
+            .select(DataColumns.MINISTERIO) { order("nombre", Order.ASCENDING) }
             .decodeList<MinisterioRow>()
         val membershipRows = client.from("miembro_ministerio")
-            .select()
+            .select(DataColumns.MIEMBRO_MINISTERIO)
             .decodeList<MiembroMinisterioRow>()
         // RLS: el Pastor y los líderes de ministerio ven a todos; un líder normal solo su propia fila.
         val memberRows = client.from("usuario")
-            .select { order("nombres", Order.ASCENDING) }
+            .select(DataColumns.USUARIO) { order("nombres", Order.ASCENDING) }
             .decodeList<UsuarioRow>()
         val membershipsByUser = membershipRows.groupBy(MiembroMinisterioRow::usuarioId)
         val members = memberRows.map { row ->
@@ -151,33 +167,41 @@ object SupabaseBackend {
 
         val zone = ZoneId.systemDefault()
         val actividadRows = client.from("actividad")
-            .select()
+            .select(DataColumns.ACTIVIDAD)
             .decodeList<ActividadRow>()
         val responsablesByActivity = client.from("actividad_responsable")
-            .select()
+            .select(DataColumns.ACTIVIDAD_RESPONSABLE)
             .decodeList<ActividadResponsableRow>()
             .groupBy(ActividadResponsableRow::actividadId)
             .mapValues { (_, rows) -> rows.map(ActividadResponsableRow::usuarioId) }
-        val cultoByActivity = client.from("detalle_culto")
-            .select()
-            .decodeList<DetalleCultoRow>()
-            .associateBy(DetalleCultoRow::actividadId)
-        val targetsByActivity = client.from("convocatoria")
-            .select()
-            .decodeList<ConvocatoriaRow>()
-            .groupBy(ConvocatoriaRow::actividadId)
-            .mapValues { (_, rows) ->
-                rows.map { StagingActivities.Target(it.alcance, it.ministerioId, it.usuarioId) }
-            }
+        val cultoByActivity = optionalSection("detalle de culto", emptyMap<String, DetalleCultoRow>()) {
+            client.from("detalle_culto")
+                .select(DataColumns.DETALLE_CULTO)
+                .decodeList<DetalleCultoRow>()
+                .associateBy(DetalleCultoRow::actividadId)
+        }
+        val targetsByActivity = optionalSection("convocatorias", emptyMap<String, List<StagingActivities.Target>>()) {
+            client.from("convocatoria")
+                .select(DataColumns.CONVOCATORIA)
+                .decodeList<ConvocatoriaRow>()
+                .groupBy(ConvocatoriaRow::actividadId)
+                .mapValues { (_, rows) ->
+                    rows.map { StagingActivities.Target(it.alcance, it.ministerioId, it.usuarioId) }
+                }
+        }
 
-        val tareaRows = client.from("tarea")
-            .select()
-            .decodeList<TareaRow>()
+        val tareaRows = optionalSection("tareas", emptyList<TareaRow>()) {
+            client.from("tarea")
+                .select(DataColumns.TAREA)
+                .decodeList<TareaRow>()
+        }
         val progressTasks = tareaRows.groupBy(TareaRow::actividadId)
-        val commentsByTask = client.from("comentario_tarea")
-            .select { order("created_at", Order.ASCENDING) }
-            .decodeList<ComentarioTareaRow>()
-            .groupBy(ComentarioTareaRow::tareaId)
+        val commentsByTask = optionalSection("comentarios", emptyMap<String, List<ComentarioTareaRow>>()) {
+            client.from("comentario_tarea")
+                .select(DataColumns.COMENTARIO_TAREA) { order("created_at", Order.ASCENDING) }
+                .decodeList<ComentarioTareaRow>()
+                .groupBy(ComentarioTareaRow::tareaId)
+        }
         // El avance se calcula aquí con lo visible por RLS (staging no guarda una columna de avance).
         val progressByProject = actividadRows
             .filter { it.proyectoId != null }
@@ -192,8 +216,9 @@ object SupabaseBackend {
                     },
                 )
             }
-        val projects = client.from("proyecto")
-            .select { order("fecha_cierre_estimada", Order.ASCENDING) }
+        val projects = optionalSection("proyectos", emptyList<ChurchProject>()) {
+          client.from("proyecto")
+            .select(DataColumns.PROYECTO) { order("fecha_cierre_estimada", Order.ASCENDING) }
             .decodeList<ProyectoRow>()
             .map { project ->
                 val created = project.createdAt?.let(::parseTimestamp)?.toLocalDate()
@@ -212,6 +237,7 @@ object SupabaseBackend {
                     budgetExecuted = project.presupuestoEjecutado?.toLong(),
                 )
             }
+        }
 
         val churchActivities = actividadRows.mapNotNull { row ->
             val inicio = parseTimestamp(row.inicio) ?: return@mapNotNull null
@@ -313,11 +339,12 @@ object SupabaseBackend {
             emptyList()
         }
 
-        val loadedArchivos = loadArchivos()
+        val loadedArchivos = optionalSection("archivos", emptyList<ArchivoRow>()) { loadArchivos() }
         // RLS: solo el Pastor, Alabanza y quienes participan en cultos ven canciones y repertorio.
         val songFiles = loadedArchivos.filter { it.cancionId != null }.groupBy { it.cancionId }
-        val songs = client.from("cancion")
-            .select { order("titulo", Order.ASCENDING) }
+        val songs = optionalSection("canciones", emptyList<WorshipSong>()) {
+          client.from("cancion")
+            .select(DataColumns.CANCION) { order("titulo", Order.ASCENDING) }
             .decodeList<CancionRow>()
             .map {
                 WorshipSong(
@@ -329,12 +356,16 @@ object SupabaseBackend {
                     files = songFiles[it.id].orEmpty().map { file -> file.toRecordFile() },
                 )
             }
-        val entriesByRepertoire = client.from("repertorio_cancion")
-            .select()
-            .decodeList<RepertorioCancionRow>()
-            .groupBy(RepertorioCancionRow::repertorioId)
-        val worshipSets = client.from("repertorio")
-            .select { order("updated_at", Order.DESCENDING) }
+        }
+        val entriesByRepertoire = optionalSection("repertorio", emptyMap<String, List<RepertorioCancionRow>>()) {
+            client.from("repertorio_cancion")
+                .select(DataColumns.REPERTORIO_CANCION)
+                .decodeList<RepertorioCancionRow>()
+                .groupBy(RepertorioCancionRow::repertorioId)
+        }
+        val worshipSets = optionalSection("repertorios", emptyList<WorshipSet>()) {
+          client.from("repertorio")
+            .select(DataColumns.REPERTORIO) { order("updated_at", Order.DESCENDING) }
             .decodeList<RepertorioRow>()
             .map { set ->
                 WorshipSet(
@@ -353,10 +384,12 @@ object SupabaseBackend {
                         },
                 )
             }
+        }
 
         // RLS: cada persona ve solo sus avisos; los crean los triggers de la base de datos.
-        val notifications = client.from("notificacion")
-            .select { order("created_at", Order.DESCENDING) }
+        val notifications = optionalSection("avisos", emptyList<ChurchNotification>()) {
+          client.from("notificacion")
+            .select(DataColumns.NOTIFICACION) { order("created_at", Order.DESCENDING) }
             .decodeList<NotificacionRow>()
             .map {
                 ChurchNotification(
@@ -368,8 +401,11 @@ object SupabaseBackend {
                     read = it.leida,
                 )
             }
+        }
 
-        val meetingRecords = loadMeetingRecords(loadedArchivos)
+        val meetingRecords = optionalSection("registros de reuniones", emptyList<MeetingRecord>()) {
+            loadMeetingRecords(loadedArchivos)
+        }
 
         return ChurchSnapshot(
             members = members + hiddenMembers,
@@ -388,7 +424,7 @@ object SupabaseBackend {
 
     private suspend fun loadArchivos(): List<ArchivoRow> =
         client.from("archivo")
-            .select { order("created_at", Order.ASCENDING) }
+            .select(DataColumns.ARCHIVO) { order("created_at", Order.ASCENDING) }
             .decodeList<ArchivoRow>()
 
     private fun ArchivoRow.toRecordFile() =
@@ -397,12 +433,12 @@ object SupabaseBackend {
     private suspend fun loadMeetingRecords(archivos: List<ArchivoRow>): List<MeetingRecord> {
         val zone = ZoneId.systemDefault()
         val visibilityByRecord = client.from("visibilidad_reunion")
-            .select()
+            .select(DataColumns.VISIBILIDAD_REUNION)
             .decodeList<VisibilidadReunionRow>()
             .groupBy(VisibilidadReunionRow::reunionId)
         val filesByRecord = archivos.filter { it.reunionId != null }.groupBy { it.reunionId }
         return client.from("reunion")
-            .select { order("fecha", Order.DESCENDING) }
+            .select(DataColumns.REUNION) { order("fecha", Order.DESCENDING) }
             .decodeList<ReunionRow>()
             .map { record ->
                 val visibility = StagingRecords.resolveVisibility(
@@ -494,7 +530,7 @@ object SupabaseBackend {
         val deleted = try {
             // Las filas de archivo y visibilidad se eliminan en cascada.
             client.from("reunion").delete {
-                select()
+                select(DataColumns.ID)
                 filter { eq("id", record.id) }
             }.decodeList<IdRow>()
         } catch (error: CancellationException) {
@@ -546,7 +582,7 @@ object SupabaseBackend {
     /** Elimina la fila de `archivo` y luego su objeto; RLS no devuelve filas si no hay permiso. */
     private suspend fun deleteArchivo(file: RecordFile) {
         val deleted = client.from("archivo").delete {
-            select()
+            select(DataColumns.ID)
             filter { eq("id", file.id) }
         }.decodeList<IdRow>()
         if (deleted.isEmpty()) throw UserFacingException("No tienes permiso para eliminar este archivo.")
@@ -616,7 +652,7 @@ object SupabaseBackend {
                 estado = StagingMappings.statusToStaging(draft.status),
             ),
         ) {
-            select()
+            select(DataColumns.PROYECTO)
             filter {
                 eq("id", projectId)
             }
@@ -722,7 +758,7 @@ object SupabaseBackend {
     private suspend fun setActivityEnd(activityId: String, end: OffsetDateTime) {
         try {
             val updated = client.from("actividad").update(ActividadFinUpdate(end.toString())) {
-                select()
+                select(DataColumns.ID)
                 filter { eq("id", activityId) }
             }.decodeList<ActividadEstadoRow>()
             if (updated.isEmpty()) throw IllegalStateException("fin no actualizado")
@@ -755,7 +791,7 @@ object SupabaseBackend {
         require(status in WORK_STATUSES) { "El estado seleccionado no es válido." }
         val updated = try {
             client.from("actividad").update(ActividadEstadoUpdate(StagingMappings.statusToStaging(status))) {
-                select()
+                select(DataColumns.ID)
                 filter { eq("id", activityId) }
             }.decodeList<ActividadEstadoRow>()
         } catch (error: CancellationException) {
@@ -785,7 +821,7 @@ object SupabaseBackend {
                 createdBy = currentMember.id,
             ),
         ) {
-            select()
+            select(DataColumns.ID)
         }.decodeSingle<IdRow>()
         // Los comentarios ahora son filas propias: el texto inicial se guarda como el primero.
         StagingTasks.commentOrNull(draft.comments)?.let { text ->
@@ -803,7 +839,7 @@ object SupabaseBackend {
         require(status in WORK_STATUSES) { "El estado seleccionado no es válido." }
         val updated = try {
             client.from("tarea").update(TareaEstadoUpdate(StagingMappings.statusToStaging(status))) {
-                select()
+                select(DataColumns.ID)
                 filter { eq("id", taskId) }
             }.decodeList<IdRow>()
         } catch (error: CancellationException) {
@@ -825,7 +861,7 @@ object SupabaseBackend {
     /** Solo `leida` puede cambiar (un trigger lo exige); RLS limita el cambio a los avisos propios. */
     suspend fun markNotificationRead(notificationId: String) {
         val updated = client.from("notificacion").update(NotificacionLeidaUpdate(leida = true)) {
-            select()
+            select(DataColumns.ID)
             filter { eq("id", notificationId) }
         }.decodeList<IdRow>()
         if (updated.isEmpty()) throw UserFacingException("No se pudo marcar el aviso como leído.")
@@ -894,7 +930,7 @@ object SupabaseBackend {
                     enlaceVersion = fields.versionUrl,
                 ),
             ) {
-                select()
+                select(DataColumns.ID)
                 filter { eq("id", songId) }
             }.decodeList<IdRow>()
         } catch (error: CancellationException) {
@@ -914,7 +950,7 @@ object SupabaseBackend {
     suspend fun deleteWorshipSong(song: WorshipSong) {
         val deleted = try {
             client.from("cancion").delete {
-                select()
+                select(DataColumns.ID)
                 filter { eq("id", song.id) }
             }.decodeList<IdRow>()
         } catch (error: CancellationException) {
@@ -945,7 +981,7 @@ object SupabaseBackend {
                 client.from("repertorio").insert(RepertorioInsert(repertoireId, currentMember.id, now))
             } else {
                 val updated = client.from("repertorio").update(RepertorioUpdate(currentMember.id, now)) {
-                    select()
+                    select(DataColumns.ID)
                     filter { eq("id", repertoireId) }
                 }.decodeList<IdRow>()
                 if (updated.isEmpty()) throw UserFacingException("No tienes permiso para editar el repertorio.")
@@ -1049,7 +1085,7 @@ object SupabaseBackend {
 
     suspend fun reassignTask(taskId: String, assigneeId: String) {
         val updated = client.from("tarea").update(TareaResponsableUpdate(assigneeId)) {
-            select()
+            select(DataColumns.ID)
             filter { eq("id", taskId) }
         }.decodeList<IdRow>()
         if (updated.isEmpty()) throw UserFacingException("No tienes permiso para reasignar esta tarea.")

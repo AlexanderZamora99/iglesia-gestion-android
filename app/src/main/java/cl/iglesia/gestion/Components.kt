@@ -174,6 +174,11 @@ fun Long.toColor() = Color(this)
 
 // Estructura de pantallas -----------------------------------------------------
 
+/**
+ * Título de pantalla. La etiqueta en mayúsculas de arriba ya no se dibuja (repetía lo que dice el
+ * título y ocupaba una línea); el parámetro se conserva para no tocar todas las pantallas.
+ */
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun ScreenHeader(
     eyebrow: String,
@@ -182,8 +187,6 @@ fun ScreenHeader(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier) {
-        Text(eyebrow.uppercase(AppLocale), style = MaterialTheme.typography.labelSmall, color = BrandLight)
-        Spacer(Modifier.height(4.dp))
         Text(
             title,
             style = MaterialTheme.typography.headlineMedium,
@@ -496,7 +499,9 @@ fun FullScreenForm(
             containerColor = AppBackground,
             topBar = {
                 TopAppBar(
-                    title = { Text(title, style = MaterialTheme.typography.titleLarge) },
+                    // titleLarge trae su propio color oscuro: se pide blanco aquí para que se lea
+                    // sobre la barra azul (titleContentColor no lo sobrescribe).
+                    title = { Text(title, style = MaterialTheme.typography.titleLarge, color = Color.White) },
                     navigationIcon = {
                         IconButton(onClick = requestClose, enabled = !submitting) {
                             Icon(Icons.Outlined.Close, contentDescription = "Cerrar sin guardar")
