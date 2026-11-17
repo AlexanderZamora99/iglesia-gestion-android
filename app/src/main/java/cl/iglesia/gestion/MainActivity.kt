@@ -92,6 +92,17 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.foundation.layout.offset
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.jan.supabase.gotrue.SessionStatus
@@ -111,6 +122,9 @@ enum class AppTab(val label: String, val icon: ImageVector) {
 }
 
 enum class MorePage { Menu, Worship, Records, Personnel, Notifications, Privacy }
+
+/** Desde esta cantidad de avisos sin leer, el mensaje de entrada dice que son "muchos". */
+private const val MANY_UNREAD = 10
 
 @Composable
 private fun TabNavigationDestination(
@@ -475,6 +489,31 @@ private fun ChurchApp() {
             val unread = notifications.count { !it.read }
             val permissions = Permissions(member, ministries.firstOrNull(Ministry::isWorship)?.id)
 
+            // Al entrar, un mensaje breve con lo que hay sin leer; si son muchos, lo dice con claridad.
+            var announcedFor by rememberSaveable { mutableStateOf<String?>(null) }
+            LaunchedEffect(snapshot != null, member.id) {
+                if (snapshot != null && announcedFor != member.id) {
+                    announcedFor = member.id
+                    if (unread > 0) {
+                        val text = when {
+                            unread >= MANY_UNREAD -> "Tienes muchos avisos sin leer ($unread)"
+                            unread == 1 -> "Tienes 1 aviso sin leer"
+                            else -> "Tienes $unread avisos sin leer"
+                        }
+                        val result = snackbar.showSnackbar(
+                            text,
+                            actionLabel = "Ver",
+                            withDismissAction = true,
+                            duration = SnackbarDuration.Long,
+                        )
+                        if (result == SnackbarResult.ActionPerformed) {
+                            currentTab = AppTab.More
+                            morePage = MorePage.Notifications
+                        }
+                    }
+                }
+            }
+
             /** Ejecuta una escritura, recarga los datos y solo informa éxito si persistió. */
             fun perform(successMessage: String, closeForm: Boolean = true, block: suspend () -> Unit) {
                 if (submitting) return
@@ -540,7 +579,26 @@ private fun ChurchApp() {
             val compactNavigation = androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.15f
             Scaffold(
                 containerColor = AppBackground,
-                snackbarHost = { SnackbarHost(snackbar) },
+                snackbarHost = {
+                    SnackbarHost(snackbar) { data ->
+                        // Entra desde el borde derecho y se desliza con suavidad hasta quedar casi pegado a la
+                        // izquierda (el Snackbar ya trae 12 dp de aire propio; con el desplazamiento quedan ~8 dp).
+                        var visible by remember(data) { mutableStateOf(false) }
+                        LaunchedEffect(data) { visible = true }
+                        BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                            val fromRight = with(androidx.compose.ui.platform.LocalDensity.current) { maxWidth.roundToPx() }
+                            AnimatedVisibility(
+                                visible = visible,
+                                enter = slideInHorizontally(
+                                    animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessLow),
+                                ) { fromRight } + fadeIn(tween(250)),
+                                exit = ExitTransition.None,
+                            ) {
+                                Snackbar(data, modifier = Modifier.offset(x = (-4).dp).widthIn(max = 320.dp))
+                            }
+                        }
+                    }
+                },
                 topBar = {
                     ChurchTopBar(
                         member = member,
