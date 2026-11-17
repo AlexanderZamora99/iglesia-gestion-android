@@ -438,7 +438,7 @@ private fun ProjectCard(
         }
     }
     val completedActivities = activities.count { activityProgress(it) == 100 }
-    val finished = project.status == "completed" || project.status == "cancelled"
+    val finished = project.status == "completed"
     val overdue = !finished && project.dueDate.isBefore(today)
     AppCard(onClick = onToggle) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -514,8 +514,8 @@ private fun ProjectCard(
                 }
                 if (project.budgetEstimated != null || project.budgetExecuted != null) {
                     Row {
-                        LabeledValue("Presupuesto estimado", project.budgetEstimated?.toCLPCurrency() ?: "—", Modifier.weight(1f))
-                        LabeledValue("Ejecutado", project.budgetExecuted?.toCLPCurrency() ?: "—", Modifier.weight(1f))
+                        LabeledValue("Presupuesto estimado", project.budgetEstimated?.toMoneyLabel() ?: "—", Modifier.weight(1f))
+                        LabeledValue("Ejecutado", project.budgetExecuted?.toMoneyLabel() ?: "—", Modifier.weight(1f))
                     }
                     val estimated = project.budgetEstimated
                     val executed = project.budgetExecuted

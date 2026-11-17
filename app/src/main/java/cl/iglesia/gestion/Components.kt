@@ -63,9 +63,19 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -108,6 +118,12 @@ fun LocalDate.shortLabel(): String =
 fun LocalDate.fieldLabel(): String =
     format(DateTimeFormatter.ofPattern("d MMM yyyy", AppLocale)).replace(".", "")
 
+/** Fecha y hora locales, igual que el resto de la app: "13 nov 2026, 14:05" (24 horas). */
+fun OffsetDateTime.dateTimeLabel(): String =
+    atZoneSameInstant(ZoneId.systemDefault())
+        .format(DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm", AppLocale))
+        .replace(".", "")
+
 fun LocalDate.monthLabel(): String =
     format(DateTimeFormatter.ofPattern("MMMM yyyy", AppLocale)).capitalized()
 
@@ -144,7 +160,7 @@ fun OffsetDateTime.relativeLabel(now: OffsetDateTime = OffsetDateTime.now()): St
     }
 }
 
-fun Long.toCLPCurrency(): String =
+fun Long.toMoneyLabel(): String =
     "$" + String.format(AppLocale, "%,d", this).replace(',', '.')
 
 fun String.toPriorityLabel(): String = when (this) {
@@ -166,17 +182,17 @@ fun ScreenHeader(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier) {
-        Text(eyebrow.uppercase(AppLocale), style = MaterialTheme.typography.labelSmall, color = GoldText)
-        Spacer(Modifier.height(2.dp))
+        Text(eyebrow.uppercase(AppLocale), style = MaterialTheme.typography.labelSmall, color = BrandLight)
+        Spacer(Modifier.height(4.dp))
         Text(
             title,
             style = MaterialTheme.typography.headlineMedium,
-            color = Brand,
+            color = TextPrimary,
             modifier = Modifier.semantics { heading() },
         )
         if (subtitle != null) {
-            Spacer(Modifier.height(2.dp))
-            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+            Spacer(Modifier.height(5.dp))
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         }
     }
 }
@@ -195,7 +211,7 @@ fun SectionHeader(
     ) {
         Text(
             title,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleSmall,
             color = TextPrimary,
             modifier = Modifier.semantics { heading() },
         )
@@ -214,14 +230,14 @@ fun AppCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = CardDefaults.cardColors(containerColor = containerColor)
-    val border = BorderStroke(1.dp, CardBorder)
     val shape = MaterialTheme.shapes.large
+    val elevation = CardDefaults.cardElevation(defaultElevation = if (onClick != null) 1.dp else 0.dp, pressedElevation = 2.dp)
     if (onClick != null) {
-        Card(onClick = onClick, modifier = modifier.fillMaxWidth(), colors = colors, shape = shape, border = border) {
+        Card(onClick = onClick, modifier = modifier.fillMaxWidth(), colors = colors, shape = shape, elevation = elevation) {
             Column(Modifier.padding(contentPadding), content = content)
         }
     } else {
-        Card(modifier = modifier.fillMaxWidth(), colors = colors, shape = shape, border = border) {
+        Card(modifier = modifier.fillMaxWidth(), colors = colors, shape = shape, elevation = elevation) {
             Column(Modifier.padding(contentPadding), content = content)
         }
     }
@@ -237,7 +253,7 @@ fun Pill(text: String, content: Color, container: Color, modifier: Modifier = Mo
         modifier = modifier
             .clip(RoundedCornerShape(50))
             .background(container)
-            .padding(horizontal = 10.dp, vertical = 3.dp),
+            .padding(horizontal = 9.dp, vertical = 4.dp),
     )
 }
 
@@ -320,13 +336,27 @@ fun MessageBanner(
         BannerTone.Error -> Triple(Danger, DangerSurface, Icons.Outlined.ErrorOutline)
         BannerTone.Success -> Triple(Success, SuccessSurface, Icons.Outlined.Check)
     }
+    val largeText = androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.15f
     Surface(color = container, shape = MaterialTheme.shapes.medium, modifier = modifier.fillMaxWidth()) {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(10.dp))
-            Text(message, color = content, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            if (actionLabel != null && onAction != null) {
-                TextButton(onClick = onAction) { Text(actionLabel, color = content) }
+        if (largeText) {
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.Top) {
+                Icon(icon, contentDescription = null, tint = content, modifier = Modifier.padding(top = 8.dp).size(20.dp))
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(message, color = content, style = MaterialTheme.typography.bodyMedium)
+                    if (actionLabel != null && onAction != null) {
+                        TextButton(onClick = onAction, modifier = Modifier.align(Alignment.End)) { Text(actionLabel, color = content) }
+                    }
+                }
+            }
+        } else {
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(10.dp))
+                Text(message, color = content, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                if (actionLabel != null && onAction != null) {
+                    TextButton(onClick = onAction) { Text(actionLabel, color = content) }
+                }
             }
         }
     }
@@ -397,9 +427,22 @@ fun FieldLabel(text: String, required: Boolean = false) {
 }
 
 @Composable
+fun FormSection(title: String, description: String? = null) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(top = 6.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium, color = Brand)
+        if (description != null) {
+            Text(description, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+        }
+    }
+}
+
+@Composable
 fun FieldError(text: String) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = Danger)
 }
+
+/** Verdadero cuando la persona intentó guardar con datos faltantes: los campos obligatorios vacíos se marcan. */
+val LocalShowRequiredErrors = compositionLocalOf { false }
 
 /** Formulario a pantalla completa (patrón Material para formularios largos en móvil). */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -417,7 +460,37 @@ fun FullScreenForm(
     // Se dibuja como capa a pantalla completa dentro de la actividad (edge-to-edge) y no
     // como Dialog: la ventana de un Dialog no recibe bien los insets y el botón inferior
     // quedaba oculto tras la barra de navegación. Debe emitirse en la raíz de la app.
-    androidx.activity.compose.BackHandler { if (!submitting) onDismiss() }
+    // Si la persona tocó algo dentro del formulario (escribir, elegir, marcar), antes de
+    // cerrar se pregunta si quiere descartar lo hecho. Deslizar para ver más no cuenta.
+    var touched by rememberSaveable { mutableStateOf(false) }
+    var askDiscard by rememberSaveable { mutableStateOf(false) }
+    // El botón de guardar nunca se ve "muerto": si faltan datos, al tocarlo se explica qué pasa.
+    var triedToSave by rememberSaveable { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
+    val coroutineScope = rememberCoroutineScope()
+    val showProblems = triedToSave && !canConfirm
+    val requestClose = {
+        when {
+            submitting -> Unit
+            touched -> askDiscard = true
+            else -> onDismiss()
+        }
+    }
+    androidx.activity.compose.BackHandler { requestClose() }
+    if (askDiscard) {
+        ConfirmDialog(
+            title = "¿Descartar los cambios?",
+            message = "Si sales ahora, se perderá lo que escribiste o elegiste en este formulario.",
+            confirmLabel = "Descartar",
+            dismissLabel = "Seguir editando",
+            destructive = true,
+            onConfirm = {
+                askDiscard = false
+                onDismiss()
+            },
+            onDismiss = { askDiscard = false },
+        )
+    }
     Surface(Modifier.fillMaxSize(), color = AppBackground) {
         Scaffold(
             containerColor = AppBackground,
@@ -425,7 +498,7 @@ fun FullScreenForm(
                 TopAppBar(
                     title = { Text(title, style = MaterialTheme.typography.titleLarge) },
                     navigationIcon = {
-                        IconButton(onClick = onDismiss, enabled = !submitting) {
+                        IconButton(onClick = requestClose, enabled = !submitting) {
                             Icon(Icons.Outlined.Close, contentDescription = "Cerrar sin guardar")
                         }
                     },
@@ -439,23 +512,35 @@ fun FullScreenForm(
             },
             bottomBar = {
                 Surface(color = Color.White, shadowElevation = 8.dp) {
-                    Button(
-                        onClick = onConfirm,
-                        enabled = canConfirm && !submitting,
-                        modifier = Modifier
+                    Column(
+                        Modifier
                             .fillMaxWidth()
                             .navigationBarsPadding()
                             .imePadding()
-                            .padding(16.dp)
-                            .height(52.dp),
-                        shape = MaterialTheme.shapes.medium,
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        if (submitting) {
-                            CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                            Spacer(Modifier.width(10.dp))
-                            Text("Guardando…")
-                        } else {
-                            Text(confirmLabel)
+                        // El botón nunca se ve "muerto": si faltan datos, al tocarlo se explica qué pasa.
+                        Button(
+                            onClick = {
+                                if (canConfirm) {
+                                    onConfirm()
+                                } else {
+                                    triedToSave = true
+                                    coroutineScope.launch { scrollState.animateScrollTo(0) }
+                                }
+                            },
+                            enabled = !submitting,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                            shape = RoundedCornerShape(50.dp),
+                        ) {
+                            if (submitting) {
+                                CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                                Spacer(Modifier.width(10.dp))
+                                Text("Guardando…")
+                            } else {
+                                Text(confirmLabel)
+                            }
                         }
                     }
                 }
@@ -465,12 +550,24 @@ fun FullScreenForm(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .verticalScroll(rememberScrollState())
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                            if (waitForUpOrCancellation(PointerEventPass.Initial) != null) touched = true
+                        }
+                    }
+                    .verticalScroll(scrollState)
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
+                if (showProblems) {
+                    MessageBanner(
+                        "Aún no se puede guardar. Completa los campos con * o corrige los que están en rojo.",
+                        BannerTone.Error,
+                    )
+                }
                 if (error != null) MessageBanner(error, BannerTone.Error)
-                content()
+                CompositionLocalProvider(LocalShowRequiredErrors provides showProblems) { content() }
                 Text("* Campo obligatorio", style = MaterialTheme.typography.bodySmall, color = TextMuted)
             }
         }
@@ -493,6 +590,7 @@ fun TextInput(
     isError: Boolean = false,
     placeholder: String? = null,
 ) {
+    val missing = required && value.isBlank() && LocalShowRequiredErrors.current
     OutlinedTextField(
         value = value,
         // Un campo de una línea no debe guardar saltos de línea, ni siquiera al pegar texto.
@@ -502,8 +600,12 @@ fun TextInput(
         placeholder = placeholder?.let { { Text(it) } },
         singleLine = singleLine,
         minLines = minLines,
-        isError = isError,
-        supportingText = supportingText?.let { { Text(it) } },
+        isError = isError || missing,
+        supportingText = when {
+            missing -> ({ Text("Este campo es obligatorio") })
+            supportingText != null -> ({ Text(supportingText) })
+            else -> null
+        },
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         shape = MaterialTheme.shapes.medium,
     )
@@ -667,8 +769,16 @@ fun MemberPicker(
 ) {
     var query by remember { mutableStateOf("") }
     val visible = members.filter { it.name.contains(query.trim(), ignoreCase = true) }
+    val selectedCount = selectedIds.count { id -> members.any { it.id == id } }
     if (members.size > 6) {
         TextInput(value = query, onValueChange = { query = it }, label = "Buscar persona")
+    }
+    if (multiSelect && selectedCount > 0) {
+        Text(
+            "$selectedCount ${if (selectedCount == 1) "persona seleccionada" else "personas seleccionadas"}",
+            style = MaterialTheme.typography.bodySmall,
+            color = Brand,
+        )
     }
     if (members.isEmpty()) {
         Text(emptyMessage, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
@@ -692,6 +802,14 @@ fun MemberPicker(
                     },
                 )
             }
+            if (visible.isEmpty() && members.isNotEmpty()) {
+                Text(
+                    "No encontramos personas con ese nombre.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                )
+            }
         }
     }
 }
@@ -704,6 +822,7 @@ fun ConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     destructive: Boolean = false,
+    dismissLabel: String = "Cancelar",
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -714,7 +833,7 @@ fun ConfirmDialog(
                 Text(confirmLabel, color = if (destructive) Danger else Brand)
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(dismissLabel) } },
     )
 }
 
