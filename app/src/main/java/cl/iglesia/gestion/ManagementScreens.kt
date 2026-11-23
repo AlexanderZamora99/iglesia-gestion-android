@@ -1,6 +1,7 @@
 package cl.iglesia.gestion
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -101,32 +102,39 @@ fun MinistriesScreen(
             contentPadding = ScreenPadding,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item { ScreenHeader("Comunidad", "Ministerios", "Equipos que sirven y crecen juntos.") }
+            item { ScreenHeader("Comunidad", "Ministerios", "Los ministerios que forman parte de la iglesia.") }
             if (ministries.isEmpty()) {
                 item { EmptyState("Sin ministerios", "Los ministerios activos aparecerán aquí.", Icons.Outlined.Groups) }
             }
             items(ministries, key = { it.id }) { ministry ->
                 val count = members.count { ministry.id in it.ministryIds }
                 val leaders = ministry.leaderIds.mapNotNull { id -> members.find { it.id == id }?.name }
-                AppCard(onClick = { selectedId = ministry.id }) {
+                AppCard(onClick = { selectedId = ministry.id }, contentPadding = 20.dp) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        SymbolBadge(ministry.icon, ministry.color.toColor(), size = 48.dp)
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(ministry.name, style = MaterialTheme.typography.titleSmall, color = TextPrimary)
-                            Text(if (count == 1) "1 integrante" else "$count integrantes", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                        Box(
+                            Modifier.size(52.dp).clip(CircleShape).background(MutedSurface),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(ministry.icon, color = Brand, style = MaterialTheme.typography.titleLarge)
                         }
-                        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = TextMuted)
+                        Spacer(Modifier.weight(1f))
+                        Pill("Activo", Color.White, Brand)
                     }
+                    Spacer(Modifier.height(18.dp))
+                    Text(ministry.name, style = MaterialTheme.typography.titleLarge, color = TextPrimary)
                     if (ministry.description.isNotBlank()) {
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(6.dp))
                         Text(ministry.description, style = MaterialTheme.typography.bodyMedium, color = TextSecondary, maxLines = 3, overflow = TextOverflow.Ellipsis)
                     }
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(12.dp))
                     Text(
-                        if (leaders.isEmpty()) "Sin líder asignado" else "Líder: ${leaders.joinToString()}",
+                        buildString {
+                            append(if (count == 1) "1 integrante" else "$count integrantes")
+                            append(" · ")
+                            append(if (leaders.isEmpty()) "Sin líder asignado" else "Líder: ${leaders.joinToString()}")
+                        },
                         style = MaterialTheme.typography.labelMedium,
-                        color = ministry.color.toColor(),
+                        color = TextMuted,
                     )
                 }
             }

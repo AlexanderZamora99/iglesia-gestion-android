@@ -527,15 +527,23 @@ fun CalendarScreen(
         ) {
             item {
                 Column(Modifier.padding(horizontal = 16.dp)) {
-                    ScreenHeader(
-                        "Calendario",
-                        "Agenda",
-                        when {
-                            showingPending -> "Lo que te falta por hacer, empezando por lo vencido."
-                            personal -> "Lo que tienes asignado o donde participas."
-                            else -> "Toda la actividad visible para ti."
-                        },
-                    )
+                    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        IconBadge(Icons.Outlined.CalendarMonth, tint = Brand, container = BrandContainer, size = 48.dp)
+                        ScreenHeader(
+                            "Calendario",
+                            when {
+                                showingPending -> "Mi cronograma"
+                                personal -> "Mi cronograma"
+                                else -> "Cronograma general"
+                            },
+                            when {
+                                showingPending -> "Tus actividades y tareas asignadas, ordenadas por fecha."
+                                personal -> "Lo que tienes asignado o donde participas, ordenado por fecha."
+                                else -> "Todas las actividades de la iglesia que puedes ver, ordenadas por fecha."
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                     Spacer(Modifier.height(12.dp))
                     // Un solo selector en lugar de dos apilados: General, Mi agenda (por día) o Pendientes.
                     val modes = listOf("General", "Mi agenda", "Pendientes")
@@ -544,17 +552,19 @@ fun CalendarScreen(
                         pendingView -> 2
                         else -> 1
                     }
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        modes.forEachIndexed { index, label ->
-                            SegmentedButton(
-                                selected = selectedMode == index,
-                                onClick = {
-                                    onPersonalChange(index != 0)
-                                    if (index != 0) onPendingViewChange(index == 2)
-                                },
-                                shape = SegmentedButtonDefaults.itemShape(index, modes.size),
-                                colors = SegmentedButtonDefaults.colors(activeContainerColor = BrandContainer, activeContentColor = Brand),
-                            ) { Text(label, maxLines = 1) }
+                    AppCard(contentPadding = 8.dp) {
+                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                            modes.forEachIndexed { index, label ->
+                                SegmentedButton(
+                                    selected = selectedMode == index,
+                                    onClick = {
+                                        onPersonalChange(index != 0)
+                                        if (index != 0) onPendingViewChange(index == 2)
+                                    },
+                                    shape = SegmentedButtonDefaults.itemShape(index, modes.size),
+                                    colors = SegmentedButtonDefaults.colors(activeContainerColor = Brand, activeContentColor = Color.White),
+                                ) { Text(label, maxLines = 1) }
+                            }
                         }
                     }
                 }
@@ -666,8 +676,8 @@ fun CalendarScreen(
                             onClick = { typeFilter = filter },
                             label = { Text(filter) },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = BrandContainer,
-                                selectedLabelColor = Brand,
+                                selectedContainerColor = Brand,
+                                selectedLabelColor = Color.White,
                             ),
                         )
                     }
