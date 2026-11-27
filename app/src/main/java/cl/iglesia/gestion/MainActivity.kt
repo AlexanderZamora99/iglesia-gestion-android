@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +33,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -1212,18 +1214,26 @@ private fun ChurchTopBar(member: Member, unread: Int, onNotifications: () -> Uni
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // Símbolo decorativo: el lector de pantalla lee solo el nombre de la iglesia.
                 Box(
-                    modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(Color.White.copy(alpha = 0.14f))
+                    modifier = Modifier.size(40.dp).clip(CircleShape)
+                        .border(1.5.dp, Color.White.copy(alpha = 0.95f), CircleShape)
                         .clearAndSetSemantics {},
                     contentAlignment = Alignment.Center,
-                ) { Text("✝", color = Gold, fontSize = 20.sp) }
+                ) { Text("✝", color = Color.White, fontSize = 20.sp) }
                 Spacer(Modifier.width(10.dp))
                 // Una sola línea: el nombre completo aparece en Privacidad y en el inicio de sesión.
-                Text("Centro Mundial", color = Color.White, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                Column {
+                    Text("IGLESIA", color = Color.White, style = MaterialTheme.typography.labelLarge.copy(fontSize = 15.sp, lineHeight = 16.sp))
+                    Text("CMAA", color = Color.White, style = MaterialTheme.typography.titleMedium.copy(fontSize = 19.sp, lineHeight = 20.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold))
+                }
             }
         },
         actions = {
             IconButton(onClick = onNotifications) {
-                BadgedBox(badge = { if (unread > 0) Badge { Text(if (unread > 9) "9+" else unread.toString()) } }) {
+                BadgedBox(badge = {
+                    if (unread > 0) Badge(containerColor = Gold, contentColor = TextPrimary) {
+                        Text(if (unread > 9) "9+" else unread.toString())
+                    }
+                }) {
                     Icon(
                         Icons.Outlined.NotificationsNone,
                         contentDescription = if (unread > 0) "Avisos, $unread sin leer" else "Avisos",
@@ -1237,7 +1247,7 @@ private fun ChurchTopBar(member: Member, unread: Int, onNotifications: () -> Uni
                     modifier = Modifier.semantics { contentDescription = "Menú de cuenta de ${member.name}" },
                 ) {
                     Box(
-                        Modifier.size(34.dp).clip(RoundedCornerShape(50)).background(Gold).clearAndSetSemantics {},
+                        Modifier.size(42.dp).clip(CircleShape).background(Gold).clearAndSetSemantics {},
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(member.initials, color = Brand, style = MaterialTheme.typography.labelLarge)
